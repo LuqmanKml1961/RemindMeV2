@@ -39,29 +39,29 @@ So there's a minimal Next.js API + database that stores **only**: your push subs
 ## How it all fits together
 
 ```
-┌─────────────────────────┐        ┌──────────────────────────────────┐
-│  Browser (your device)  │        │  Vercel (Next.js app)             │
-│                          │        │                                  │
-│  IndexedDB (Dexie)       │        │  API routes (app/api/push/*)      │
-│  - reminders             │        │  - subscribe / unsubscribe        │
-│  - medications           │        │  - schedule / cancel              │
-│  - vault entries         │        │  - dispatch                       │
-│  - todos                 │        │  - vapid-public-key               │
-│  - preferences           │        │            │                     │
-│         │                │        │            ▼                     │
-│         │ create/edit ───┼───────►│  Turso (libSQL) database          │
-│         │ a reminder     │        │  - push_subscriptions             │
-│         │                │        │  - scheduled_triggers             │
-│  Service worker (sw.js)  │        │    (title/body/time only —        │
-│  - caches the app shell  │        │     never your reminder content)  │
-│  - shows notifications ◄─┼────────┼── web-push sends the actual push  │
-│    even if the app/tab   │        │            ▲                      │
-│    is fully closed       │        │            │                      │
-└─────────────────────────┘        │  cron-job.org pings /api/push/     │
+┌──────────────────────────┐        ┌────────────────────────────────────┐
+│  Browser (your device)   │        │  Vercel (Next.js app)              │
+│                          │        │                                    │
+│  IndexedDB (Dexie)       │        │  API routes (app/api/push/*)       │
+│  - reminders             │        │  - subscribe / unsubscribe         │
+│  - medications           │        │  - schedule / cancel               │
+│  - vault entries         │        │  - dispatch                        │
+│  - todos                 │        │  - vapid-public-key                │
+│  - preferences           │        │            │                       │
+│         │                │        │            ▼                       │
+│         │ create/edit ───┼───────►│  Turso (libSQL) database           │
+│         │ a reminder     │        │  - push_subscriptions              │
+│         │                │        │  - scheduled_triggers              │ 
+│  Service worker (sw.js)  │        │    (title/body/time only —         │
+│  - caches the app shell  │        │     never your reminder content)   │
+│  - shows notifications ◄─┼────────┼── web-push sends the actual push   │
+│    even if the app/tab   │        │            ▲                       │
+│    is fully closed       │        │            │                       │
+└──────────────────────────┘        │  cron-job.org pings /api/push/     │
                                     │  dispatch every minute, which      │
                                     │  finds due triggers and sends      │
                                     │  the push for each one             │
-                                    └──────────────────────────────────┘
+                                    └────────────────────────────────────┘
 ```
 
 **Data flow when you create a reminder with a due date:**
