@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RemindMe (PWA)
 
-## Getting Started
+A local-first reminder app — installable on laptop, iOS, and Android from one codebase. No accounts, no cloud: reminders, medications, vault entries, and to-dos live entirely in your browser's storage (IndexedDB).
 
-First, run the development server:
+This is the PWA rewrite of the original native Android app (Kotlin/Compose, see the sibling `RemindMe` repo). Feature parity: time-based reminders with quick presets, medical entries with multiple medications, monthly bills with an amount, recurrence (daily/weekly/monthly/yearly/every N days), share-via-link import, a notification-free Vault (People / Home & Vehicle / Property), a to-do list, auto-delete on completion, and onboarding.
+
+## Why there's a tiny backend
+
+Everything you enter — reminders, medications, vault data, to-dos — is stored **only** in your browser (Dexie/IndexedDB). Nothing about that data ever leaves your device.
+
+The one thing the browser genuinely cannot do on its own is **wake itself up after being killed** to show a notification — there's no web equivalent of Android's `AlarmManager`. The only mechanism that survives a fully-closed browser/app on both Android and iOS (16.4+, home-screen-installed) is **Web Push**, and Web Push requires a server to hold your push subscription and fire the push at the right time.
+
+So there's a minimal Next.js API + database that stores **only**: your push subscription, and for each upcoming reminder, its title/body text and trigger time. That's it — no medications, no vault content, no to-dos ever touch the server.
+
+## Notifications: what to expect per platform
+
+- **Android (Chrome)**: works after closing the app/tab; the browser's push service wakes the service worker in the background.
+- **iOS (Safari, 16.4+)**: you must **Add to Home Screen** first and open the app from there — regular Safari tabs cannot receive push. Once installed, grant notification permission from inside the app (Settings → Enable Notifications).
+- **Desktop**: works while the browser is installed/running in the background (most browsers keep a lightweight push listener alive even with the window closed, depending on OS-level background app permissions).
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env.local   # fill in VAPID keys — see below
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Generate VAPID keys (one-time, for push)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npx web-push generate-vapid-keys
+```
 
-## Learn More
+Put the values in `.env.local`:
 
-To learn more about Next.js, take a look at the following resources:
+```
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you@example.com
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Local push-scheduling database
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+By default `DATABASE_URL` is unset and falls back to a local SQLite file (`local.db`, gitignored) via `@libsql/client` — no external account needed for development. It stores only push subscriptions and scheduled trigger times (see above).
 
-## Deploy on Vercel
+### Manually testing "fires after the app is killed"
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. `npm run dev`, open the app, complete onboarding (grants notification permission + subscribes).
+2. Create a reminder due ~1 minute out.
+3. Close the tab (or, on a real device, kill the app entirely).
+4. Trigger a dispatch cycle by calling the cron endpoint yourself:
+   ```bash
+   curl -X POST http://localhost:3000/api/push/dispatch
+   ```
+   In production this is called automatically every minute (see `vercel.json`).
+5. You should get a real system notification; tapping it opens the app to that reminder.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploying
+
+This app runs anywhere Node.js/Next.js runs. For Vercel specifically:
+
+1. `vercel link` / import the repo in the Vercel dashboard.
+2. Set the environment variables from `.env.example` in the Vercel project settings (production VAPID keys — reuse the local dev ones, or generate new ones).
+3. Provision a persistent database for push scheduling — `local.db` will **not** persist on Vercel's serverless filesystem. Easiest option: [Turso](https://turso.tech) (libSQL-hosted, same client library — just set `DATABASE_URL`/`DATABASE_AUTH_TOKEN`, no code changes), or any other libSQL-compatible host.
+4. Cron: `vercel.json` schedules `/api/push/dispatch` every minute. **Note:** Vercel's Hobby plan currently limits cron jobs to once per day — per-minute cron requires a Pro plan. If you're on Hobby, use a free external pinger instead (e.g. a scheduled GitHub Actions workflow, or [cron-job.org](https://cron-job.org)) hitting `POST https://<your-domain>/api/push/dispatch` with an `Authorization: Bearer <CRON_SECRET>` header (set `CRON_SECRET` in your env to require it).
+5. Deploy.
+
+## Architecture
+
+- **Storage**: Dexie (IndexedDB) — `lib/db/*`. Source of truth for all personal data, offline-capable.
+- **Domain logic**: `lib/domain/*` — recurrence math, share-link encode/decode.
+- **Share/import**: the reminder's data is embedded directly in the share link's URL fragment (base64url JSON after `#`), never sent to any server — `lib/domain/share.ts`, `app/import/page.tsx`. This fixes a bug in the original Android app, where the share link only worked if the recipient happened to already have the reminder in their own local database.
+- **Push**: `lib/push/client.ts` (subscribe/permission flow), `lib/push/store.ts` + `lib/push/send.ts` (server-only), `app/api/push/*` (subscribe/unsubscribe/schedule/cancel/dispatch), `public/sw.js` (service worker: push + notificationclick handlers, plus basic offline app-shell caching).
+- **UI**: brutalist look ported from the original app's Compose theme (`components/Brutal.tsx`, palette in `app/globals.css`), light/dark via `prefers-color-scheme`.
+
+## Testing
+
+```bash
+npm run build   # type-checks + production build
+npm run lint
+```
+
+## License
+
+All rights reserved.
