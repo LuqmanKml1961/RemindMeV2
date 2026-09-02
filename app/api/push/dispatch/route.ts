@@ -4,8 +4,8 @@ import { deleteSubscription, deleteTrigger, getDueTriggers, getSubscription, res
 import { sendPush } from "../../../../lib/push/send";
 import { withErrors } from "../../../../lib/api/withErrors";
 
-// Dispatch target, pinged on a schedule (see .github/workflows/dispatch-push.yml). Also safe to
-// call manually while developing/validating.
+// Dispatch target, pinged on a schedule by an external service (see README — cron-job.org).
+// Also safe to call manually while developing/validating.
 export const POST = withErrors(async (req: NextRequest) => {
   const secret = process.env.CRON_SECRET;
   if (secret) {
