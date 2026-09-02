@@ -55,7 +55,7 @@ By default `DATABASE_URL` is unset and falls back to a local SQLite file (`local
    ```bash
    curl -X POST http://localhost:3000/api/push/dispatch
    ```
-   In production this is called on a schedule by the GitHub Actions workflow below.
+   In production this is called on a schedule by an external pinger (see Deploying below).
 5. You should get a real system notification; tapping it opens the app to that reminder.
 
 ## Deploying
@@ -66,11 +66,14 @@ This app runs anywhere Node.js/Next.js runs. For Vercel specifically:
 2. Set the environment variables from `.env.example` in the Vercel project settings (production VAPID keys — reuse the local dev ones, or generate new ones), including a `CRON_SECRET` (any random string) to lock down the dispatch endpoint.
 3. Provision a persistent database for push scheduling — `local.db` will **not** persist on Vercel's serverless filesystem. Easiest option: [Turso](https://turso.tech) (libSQL-hosted, same client library — just set `DATABASE_URL`/`DATABASE_AUTH_TOKEN`, no code changes), or any other libSQL-compatible host.
 4. Deploy.
-5. **Scheduling the dispatch cron.** Vercel's Hobby plan only allows daily cron jobs, which defeats the purpose of timely reminders, so this repo uses a free GitHub Actions workflow instead (`.github/workflows/dispatch-push.yml`) that pings `/api/push/dispatch` every 5 minutes (GitHub Actions' practical minimum — timing is best-effort, so reminders can arrive a few minutes late). To enable it, add two repo secrets under Settings → Secrets and variables → Actions:
-   - `APP_URL` — your deployed URL, e.g. `https://remindme.vercel.app`
-   - `CRON_SECRET` — the same value you set in Vercel's env vars
+5. **Scheduling the dispatch call.** Vercel's Hobby plan only allows daily cron jobs, which defeats the purpose of timely reminders. This app relies on an external service to call `POST /api/push/dispatch` on a schedule instead — [cron-job.org](https://cron-job.org) (free) works well:
+   - Sign up, create a new cron job.
+   - URL: `https://<your-deployed-domain>/api/push/dispatch`
+   - Method: `POST`
+   - Schedule: every 1 minute
+   - Add a custom header: `Authorization: Bearer <CRON_SECRET>` (the same value you set in Vercel's env vars)
 
-   For tighter timing, either point a free service like [cron-job.org](https://cron-job.org) (supports 1-minute intervals) at the same endpoint instead, or upgrade to Vercel Pro and add a `crons` block back to a `vercel.json`.
+   Alternatively, upgrade to Vercel Pro and add a `crons` block to a `vercel.json` for a fully native solution.
 
 ## Architecture
 
