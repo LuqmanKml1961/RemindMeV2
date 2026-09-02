@@ -8,13 +8,24 @@ import type { RecurrenceRule } from "../domain/types";
 // during the build's static-analysis pass, before any real request, so a top-level createClient()
 // call would run against build-time env vars and can crash the build (e.g. DATABASE_URL set but
 // empty). `||` also treats an empty-string env var the same as unset, falling back to local.db.
+//
+// Vercel's storage integrations don't all use a plain "DATABASE" prefix — a Turso integration can
+// land as DATABASE_TURSO_DATABASE_URL / DATABASE_TURSO_AUTH_TOKEN depending on setup, so check both.
 let client: Client | null = null;
+
+function resolveUrl(): string {
+  return process.env.DATABASE_URL || process.env.DATABASE_TURSO_DATABASE_URL || "file:local.db";
+}
+
+function resolveAuthToken(): string | undefined {
+  return process.env.DATABASE_AUTH_TOKEN || process.env.DATABASE_TURSO_AUTH_TOKEN || undefined;
+}
 
 function getClient(): Client {
   if (!client) {
     client = createClient({
-      url: process.env.DATABASE_URL || "file:local.db",
-      authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
+      url: resolveUrl(),
+      authToken: resolveAuthToken(),
     });
   }
   return client;
