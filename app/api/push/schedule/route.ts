@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upsertTrigger } from "../../../../lib/push/store";
 import type { RecurrenceRule } from "../../../../lib/domain/types";
+import { withErrors } from "../../../../lib/api/withErrors";
 
-export async function POST(req: NextRequest) {
+export const POST = withErrors(async (req: NextRequest) => {
   const { deviceId, reminderId, title, body, triggerAt, recurrence } = (await req.json()) as {
     deviceId: string;
     reminderId: string;
@@ -23,4 +24,4 @@ export async function POST(req: NextRequest) {
     recurrence: recurrence ?? null,
   });
   return NextResponse.json({ ok: true });
-}
+});

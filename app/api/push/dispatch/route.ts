@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { computeNextDue } from "../../../../lib/domain/recurrence";
 import { deleteSubscription, deleteTrigger, getDueTriggers, getSubscription, rescheduleTrigger } from "../../../../lib/push/store";
 import { sendPush } from "../../../../lib/push/send";
+import { withErrors } from "../../../../lib/api/withErrors";
 
-// Cron target (see vercel.json). Also safe to call manually while developing/validating.
-export async function POST(req: NextRequest) {
+// Dispatch target, pinged on a schedule (see .github/workflows/dispatch-push.yml). Also safe to
+// call manually while developing/validating.
+export const POST = withErrors(async (req: NextRequest) => {
   const secret = process.env.CRON_SECRET;
   if (secret) {
     const provided = req.headers.get("authorization");
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ checked: due.length, sent });
-}
+});
 
 export async function GET(req: NextRequest) {
   return POST(req);
