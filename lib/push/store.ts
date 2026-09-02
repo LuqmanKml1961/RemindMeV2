@@ -1,19 +1,30 @@
 // Server-only persistence for push delivery. Deliberately holds the minimum needed to show a
 // notification (title/body/trigger time + recurrence) — never medication, vault, or todo content.
 import "server-only";
-import { createClient } from "@libsql/client";
+import { createClient, type Client } from "@libsql/client";
 import type { RecurrenceRule } from "../domain/types";
 
-const client = createClient({
-  url: process.env.DATABASE_URL ?? "file:local.db",
-  authToken: process.env.DATABASE_AUTH_TOKEN,
-});
+// Created lazily (on first real DB call) rather than at module load — Next.js imports this module
+// during the build's static-analysis pass, before any real request, so a top-level createClient()
+// call would run against build-time env vars and can crash the build (e.g. DATABASE_URL set but
+// empty). `||` also treats an empty-string env var the same as unset, falling back to local.db.
+let client: Client | null = null;
+
+function getClient(): Client {
+  if (!client) {
+    client = createClient({
+      url: process.env.DATABASE_URL || "file:local.db",
+      authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
+    });
+  }
+  return client;
+}
 
 let initialized: Promise<void> | null = null;
 
 function init(): Promise<void> {
   if (!initialized) {
-    initialized = client
+    initialized = getClient()
       .batch(
         [
           `CREATE TABLE IF NOT EXISTS push_subscriptions (
@@ -60,7 +71,7 @@ export interface ScheduledTriggerRow {
 
 export async function saveSubscription(deviceId: string, endpoint: string, p256dh: string, auth: string): Promise<void> {
   await init();
-  await client.execute({
+  await getClient().execute({
     sql: `INSERT INTO push_subscriptions (device_id, endpoint, p256dh, auth, updated_at)
           VALUES (?, ?, ?, ?, ?)
           ON CONFLICT(device_id) DO UPDATE SET endpoint = excluded.endpoint, p256dh = excluded.p256dh, auth = excluded.auth, updated_at = excluded.updated_at`,
@@ -70,13 +81,13 @@ export async function saveSubscription(deviceId: string, endpoint: string, p256d
 
 export async function deleteSubscription(deviceId: string): Promise<void> {
   await init();
-  await client.execute({ sql: `DELETE FROM push_subscriptions WHERE device_id = ?`, args: [deviceId] });
-  await client.execute({ sql: `DELETE FROM scheduled_triggers WHERE device_id = ?`, args: [deviceId] });
+  await getClient().execute({ sql: `DELETE FROM push_subscriptions WHERE device_id = ?`, args: [deviceId] });
+  await getClient().execute({ sql: `DELETE FROM scheduled_triggers WHERE device_id = ?`, args: [deviceId] });
 }
 
 export async function getSubscription(deviceId: string): Promise<PushSubscriptionRow | null> {
   await init();
-  const result = await client.execute({ sql: `SELECT * FROM push_subscriptions WHERE device_id = ?`, args: [deviceId] });
+  const result = await getClient().execute({ sql: `SELECT * FROM push_subscriptions WHERE device_id = ?`, args: [deviceId] });
   const row = result.rows[0];
   if (!row) return null;
   return { deviceId: row.device_id as string, endpoint: row.endpoint as string, p256dh: row.p256dh as string, auth: row.auth as string };
@@ -84,7 +95,7 @@ export async function getSubscription(deviceId: string): Promise<PushSubscriptio
 
 export async function upsertTrigger(row: ScheduledTriggerRow): Promise<void> {
   await init();
-  await client.execute({
+  await getClient().execute({
     sql: `INSERT INTO scheduled_triggers (reminder_id, device_id, title, body, trigger_at, recurrence_unit, recurrence_interval)
           VALUES (?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(reminder_id, device_id) DO UPDATE SET title = excluded.title, body = excluded.body, trigger_at = excluded.trigger_at, recurrence_unit = excluded.recurrence_unit, recurrence_interval = excluded.recurrence_interval`,
@@ -94,7 +105,7 @@ export async function upsertTrigger(row: ScheduledTriggerRow): Promise<void> {
 
 export async function cancelTrigger(reminderId: string, deviceId: string): Promise<void> {
   await init();
-  await client.execute({
+  await getClient().execute({
     sql: `DELETE FROM scheduled_triggers WHERE reminder_id = ? AND device_id = ?`,
     args: [reminderId, deviceId],
   });
@@ -102,7 +113,7 @@ export async function cancelTrigger(reminderId: string, deviceId: string): Promi
 
 export async function getDueTriggers(nowMillis: number): Promise<ScheduledTriggerRow[]> {
   await init();
-  const result = await client.execute({ sql: `SELECT * FROM scheduled_triggers WHERE trigger_at <= ?`, args: [nowMillis] });
+  const result = await getClient().execute({ sql: `SELECT * FROM scheduled_triggers WHERE trigger_at <= ?`, args: [nowMillis] });
   return result.rows.map((row) => ({
     reminderId: row.reminder_id as string,
     deviceId: row.device_id as string,
@@ -115,7 +126,7 @@ export async function getDueTriggers(nowMillis: number): Promise<ScheduledTrigge
 
 export async function rescheduleTrigger(reminderId: string, deviceId: string, nextTriggerAt: number): Promise<void> {
   await init();
-  await client.execute({
+  await getClient().execute({
     sql: `UPDATE scheduled_triggers SET trigger_at = ? WHERE reminder_id = ? AND device_id = ?`,
     args: [nextTriggerAt, reminderId, deviceId],
   });
