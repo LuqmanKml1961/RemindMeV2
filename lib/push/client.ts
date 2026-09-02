@@ -62,9 +62,15 @@ export async function requestNotificationPermissionAndSubscribe(): Promise<Notif
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return permission === "denied" ? "denied" : "needs-permission";
 
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  let vapidPublicKey: string | null = null;
+  try {
+    const res = await fetch("/api/push/vapid-public-key");
+    vapidPublicKey = (await res.json()).publicKey ?? null;
+  } catch (err) {
+    console.error("Failed to fetch VAPID public key", err);
+  }
   if (!vapidPublicKey) {
-    console.error("NEXT_PUBLIC_VAPID_PUBLIC_KEY missing from this build — cannot subscribe to push");
+    console.error("VAPID_PUBLIC_KEY not configured on the server — cannot subscribe to push");
     return "not-configured";
   }
 
