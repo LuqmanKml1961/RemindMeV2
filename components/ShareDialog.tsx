@@ -34,8 +34,8 @@ export function ShareDialog({ reminder, onClose }: { reminder: Reminder; onClose
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={onClose}>
-      <BrutalCard className="w-full max-w-sm bg-card" >
+    <div className="motion-fade fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={onClose}>
+      <BrutalCard className="motion-sheet w-full max-w-sm bg-card">
         <div onClick={(e) => e.stopPropagation()}>
           <h2 className="text-lg font-bold uppercase">Share Reminder</h2>
           <p className="mt-2 text-sm text-muted-fg">

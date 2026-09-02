@@ -46,8 +46,120 @@
 body {
   background: var(--color-bg);
   color: var(--color-fg);
+  -webkit-tap-highlight-color: transparent;
 }
 
 * {
   border-color: var(--color-border);
+}
+
+/* ============================================================
+   Motion & high-refresh-rate polish
+   All animations must be compositor-only (transform/opacity) so
+   they run on the GPU and stay silky on 60Hz, 120Hz, and 144Hz
+   displays — no layout/paint thrash.
+   ============================================================ */
+
+:root {
+  --dur-fast: 120ms;
+  --dur-med: 200ms;
+  --dur-slow: 320ms;
+  /* Spring-like easing for a tactile, high-refresh feel. */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Fluid drop-in for modals / bottom sheets. */
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes press {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0.96);
+  }
+}
+
+/* Reusable utility classes */
+.motion-sheet {
+  animation: sheet-up var(--dur-med) var(--ease-spring) both;
+}
+.motion-fade {
+  animation: fade-in var(--dur-med) var(--ease-out) both;
+}
+.motion-active {
+  transform: scale(0.96);
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+
+/* Interactive elements: compositor-friendly press + colour feedback. */
+button,
+a,
+input[type="checkbox"] {
+  transition:
+    color var(--dur-fast) ease-out,
+    background-color var(--dur-fast) ease-out,
+    transform var(--dur-fast) var(--ease-spring),
+    opacity var(--dur-fast) ease-out;
+}
+button:active,
+a:active {
+  transform: scale(0.96);
+}
+
+/* Off-screen page content while the View Transitions API animates between
+   routes stays interactive (clicks pass through the overlay). */
+::view-transition {
+  pointer-events: none;
+}
+
+/* All route changes use a single, short, clean cross-fade. The old page fades
+   out a touch faster than the new fades in, so the two routes are never visibly
+   stacked at partial opacity for long (no "overlap" bug). */
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 180ms;
+  animation-timing-function: ease-out;
+}
+::view-transition-old(*) {
+  animation-duration: 140ms;
+}
+
+/* ============================================================
+   prefers-reduced-motion — respect the user's OS/phone setting.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
 }

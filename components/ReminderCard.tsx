@@ -70,7 +70,7 @@ export function ReminderCard({ reminder }: { reminder: Reminder }) {
       </div>
 
       <div className="mt-3 flex gap-2">
-        <Link href={`/create?id=${reminder.id}`} className="flex-1">
+        <Link href={`/create?id=${reminder.id}`} transitionTypes={["nav-forward"]} className="flex-1">
           <BrutalButton className="w-full py-2 text-xs">Edit</BrutalButton>
         </Link>
         <BrutalButton className="flex-1 py-2 text-xs" onClick={() => setShareOpen(true)}>

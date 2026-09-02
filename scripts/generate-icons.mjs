@@ -28,6 +28,7 @@ const targets = [
   { file: "icon-512.png", size: 512, padding: 0 },
   { file: "icon-maskable-192.png", size: 192, padding: 24 },
   { file: "icon-maskable-512.png", size: 512, padding: 64 },
+  { file: "apple-touch-icon.png", size: 180, padding: 0 },
 ];
 
 await mkdir(OUT_DIR, { recursive: true });
@@ -48,6 +49,13 @@ const badgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"
 const badgePng = await sharp(Buffer.from(badgeSvg)).png().toBuffer();
 await writeFile(path.join(OUT_DIR, "icon-badge.png"), badgePng);
 console.log("wrote icon-badge.png");
+
+// Apple home-screen icon (180x180) via Next.js's `apple-icon` file convention — this is what
+// emits the <link rel="apple-touch-icon"> tag for iOS installs.
+const APP_DIR = path.join(process.cwd(), "app");
+const applePng = await sharp(Buffer.from(svg({ size: 180, padding: 0, bg: "#f4f2ec", fg: "#121212" }))).png().toBuffer();
+await writeFile(path.join(APP_DIR, "apple-icon.png"), applePng);
+console.log("wrote app/apple-icon.png");
 
 // Also drop a favicon-ish 32px version for good measure.
 const favicon = await sharp(Buffer.from(svg({ size: 64, padding: 0, bg: "#121212", fg: "#f4f2ec" }))).png().toBuffer();

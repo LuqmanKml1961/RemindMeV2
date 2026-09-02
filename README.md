@@ -8,6 +8,32 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 ---
 
+## Changelog
+
+Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
+
+### 2026-09-03 — Motion & high-refresh polish (`improve/pwa-perfection`)
+
+> Shipped on the `improve/pwa-perfection` branch (commit `48a769a`), **not yet merged into `main`**.
+
+- **Fluid view transitions**: every page now animates in/out via the View Transitions API (new `PageTransition` wrapper).
+- **Compositor-only animations**: only `transform`/`opacity` are animated (sheet-up, fade-in, press-on-tap), so everything runs on the GPU — silky on high-refresh displays with no layout thrash. Route changes use a short, clean cross-fade (no overlapping-page jank).
+- **Reduced-motion support**: a `prefers-reduced-motion` media query disables all animations, transitions, and view transitions for users who opt out of motion (accessibility).
+
+### 2026-09-03 — Production PWA polish (`ab74408`, merged into `main`)
+
+- Offline-first service worker rewrite (`public/sw.js`) with an explicit `/offline` fallback page and an offline banner.
+- New `/offline`, error, not-found, global-error, and loading UI states.
+- SEO / sharing metadata: `opengraph-image`, `robots.txt`, `sitemap.xml`, `apple-icon`.
+- Enhanced `manifest.webmanifest` and stricter security headers.
+
+### 2026-09-03 — Fix push notifications on mobile (`6bc4ca3`, merged into `main`)
+
+- Push notifications now work on iOS/Android (home-screen installed) and Windows.
+- `requestNotificationPermissionAndSubscribe()` no longer falsely reports success when subscribing actually failed; Settings independently verifies a real subscription exists.
+
+---
+
 ## Table of contents
 
 - [Why there's a tiny backend](#why-theres-a-tiny-backend)

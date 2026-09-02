@@ -7,6 +7,7 @@ import { createVaultReference, deleteVaultReference } from "../../lib/db/vault";
 import { VAULT_CATEGORY_LABELS } from "../../lib/domain/types";
 import type { VaultCategory } from "../../lib/domain/types";
 import { BrutalButton, BrutalCard, BrutalChip, BrutalInput, BrutalLabel, BrutalTextarea } from "../../components/Brutal";
+import { PageTransition } from "../../components/PageTransition";
 
 const CATEGORIES = Object.keys(VAULT_CATEGORY_LABELS) as VaultCategory[];
 
@@ -37,7 +38,8 @@ export default function VaultPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <PageTransition>
+      <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-2xl font-black uppercase tracking-tight">Vault</h1>
         <p className="text-xs text-muted-fg">Quiet reference data. No notifications, ever.</p>
@@ -53,7 +55,7 @@ export default function VaultPage() {
 
       <BrutalInput placeholder="Search..." value={query} onChange={(e) => setQuery(e.target.value)} />
 
-      <div className="flex flex-col gap-2">
+      <div className="mt-2 flex flex-col gap-2">
         {filtered.map((entry) => (
           <BrutalCard key={entry.id} className="flex items-start justify-between gap-2">
             <div>
@@ -92,6 +94,7 @@ export default function VaultPage() {
           + Add to {VAULT_CATEGORY_LABELS[category]}
         </BrutalButton>
       )}
-    </div>
+      </div>
+    </PageTransition>
   );
 }

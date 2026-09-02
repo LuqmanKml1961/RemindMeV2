@@ -4,6 +4,7 @@ import { addHours, addMinutes, format } from "date-fns";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { BrutalButton, BrutalCard, BrutalChip, BrutalInput, BrutalLabel, BrutalTextarea } from "../../components/Brutal";
+import { PageTransition } from "../../components/PageTransition";
 import { db, newId } from "../../lib/db/dexie";
 import { createReminder, updateReminder } from "../../lib/db/reminders";
 import { createTodo } from "../../lib/db/todos";
@@ -105,13 +106,14 @@ function CreateReminderForm() {
       await createTodo(reminder.title, reminder.id);
     }
 
-    router.push("/");
+    router.push("/", { transitionTypes: ["nav-back"] });
   }
 
   if (!loaded) return null;
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <PageTransition>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <h1 className="text-2xl font-black uppercase tracking-tight">{editId ? "Edit Reminder" : "New Reminder"}</h1>
 
       <div className="flex gap-2">
@@ -220,7 +222,8 @@ function CreateReminderForm() {
           Save
         </BrutalButton>
       </div>
-    </form>
+      </form>
+    </PageTransition>
   );
 }
 

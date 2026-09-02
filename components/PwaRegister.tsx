@@ -21,6 +21,18 @@ export function PwaRegister() {
           }
         });
       });
+
+      // Once the SW controls this page, tell it to warm the cache with the current route's hashed
+      // JS/CSS chunks so the app works fully offline after just one visit. The SW-side handler
+      // (sw.js CACHE_URL) ignores failures gracefully.
+      const cacheUrl = window.location.href;
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: "CACHE_URL", url: cacheUrl });
+      } else {
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          navigator.serviceWorker.controller?.postMessage({ type: "CACHE_URL", url: cacheUrl });
+        });
+      }
     };
 
     register().catch((err) => console.error("SW registration failed", err));

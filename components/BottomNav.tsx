@@ -22,6 +22,7 @@ export function BottomNav() {
           <Link
             key={item.href}
             href={item.href}
+            transitionTypes={["nav-forward"]}
             className={`border-r-2 border-border py-3 text-center text-xs font-bold uppercase tracking-wide last:border-r-0 ${
               active ? "bg-fg text-bg" : "text-fg"
             }`}
