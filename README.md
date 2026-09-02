@@ -51,11 +51,11 @@ By default `DATABASE_URL` is unset and falls back to a local SQLite file (`local
 1. `npm run dev`, open the app, complete onboarding (grants notification permission + subscribes).
 2. Create a reminder due ~1 minute out.
 3. Close the tab (or, on a real device, kill the app entirely).
-4. Trigger a dispatch cycle by calling the cron endpoint yourself:
+4. Trigger a dispatch cycle by calling the endpoint yourself:
    ```bash
    curl -X POST http://localhost:3000/api/push/dispatch
    ```
-   In production this is called automatically every minute (see `vercel.json`).
+   In production this is called on a schedule by the GitHub Actions workflow below.
 5. You should get a real system notification; tapping it opens the app to that reminder.
 
 ## Deploying
@@ -63,10 +63,14 @@ By default `DATABASE_URL` is unset and falls back to a local SQLite file (`local
 This app runs anywhere Node.js/Next.js runs. For Vercel specifically:
 
 1. `vercel link` / import the repo in the Vercel dashboard.
-2. Set the environment variables from `.env.example` in the Vercel project settings (production VAPID keys — reuse the local dev ones, or generate new ones).
+2. Set the environment variables from `.env.example` in the Vercel project settings (production VAPID keys — reuse the local dev ones, or generate new ones), including a `CRON_SECRET` (any random string) to lock down the dispatch endpoint.
 3. Provision a persistent database for push scheduling — `local.db` will **not** persist on Vercel's serverless filesystem. Easiest option: [Turso](https://turso.tech) (libSQL-hosted, same client library — just set `DATABASE_URL`/`DATABASE_AUTH_TOKEN`, no code changes), or any other libSQL-compatible host.
-4. Cron: `vercel.json` schedules `/api/push/dispatch` every minute. **Note:** Vercel's Hobby plan currently limits cron jobs to once per day — per-minute cron requires a Pro plan. If you're on Hobby, use a free external pinger instead (e.g. a scheduled GitHub Actions workflow, or [cron-job.org](https://cron-job.org)) hitting `POST https://<your-domain>/api/push/dispatch` with an `Authorization: Bearer <CRON_SECRET>` header (set `CRON_SECRET` in your env to require it).
-5. Deploy.
+4. Deploy.
+5. **Scheduling the dispatch cron.** Vercel's Hobby plan only allows daily cron jobs, which defeats the purpose of timely reminders, so this repo uses a free GitHub Actions workflow instead (`.github/workflows/dispatch-push.yml`) that pings `/api/push/dispatch` every 5 minutes (GitHub Actions' practical minimum — timing is best-effort, so reminders can arrive a few minutes late). To enable it, add two repo secrets under Settings → Secrets and variables → Actions:
+   - `APP_URL` — your deployed URL, e.g. `https://remindme.vercel.app`
+   - `CRON_SECRET` — the same value you set in Vercel's env vars
+
+   For tighter timing, either point a free service like [cron-job.org](https://cron-job.org) (supports 1-minute intervals) at the same endpoint instead, or upgrade to Vercel Pro and add a `crons` block back to a `vercel.json`.
 
 ## Architecture
 

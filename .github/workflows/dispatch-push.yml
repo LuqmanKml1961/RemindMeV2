@@ -1,0 +1,26 @@
+name: Dispatch push notifications
+
+# Vercel Hobby plan only allows daily cron jobs, which is useless for timely reminders.
+# This pings the app's dispatch endpoint on a tight interval instead — free, no Vercel Pro needed.
+# GitHub Actions schedules have a ~5 minute floor and are best-effort (can lag under load), so
+# reminders fire within a few minutes of their due time rather than exactly on the minute. For
+# tighter precision, use a dedicated pinger like cron-job.org (supports 1-minute intervals) instead,
+# or upgrade to Vercel Pro and restore a `crons` block in vercel.json.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/push/dispatch
+        run: |
+          curl -sf -X POST "${APP_URL}/api/push/dispatch" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            --max-time 30
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
