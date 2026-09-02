@@ -18,6 +18,10 @@ jobs:
     steps:
       - name: Call /api/push/dispatch
         run: |
+          if [ -z "$APP_URL" ]; then
+            echo "::error::APP_URL secret is empty or missing. Add it under Settings -> Secrets and variables -> Actions -> Secrets tab (not Variables)."
+            exit 1
+          fi
           curl -sf -X POST "${APP_URL}/api/push/dispatch" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             --max-time 30
