@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getPreferences, updatePreferences } from "../../lib/db/preferences";
-import { getNotificationReadiness, requestNotificationPermissionAndSubscribe, type NotificationReadiness } from "../../lib/push/client";
+import { getNotificationReadiness, hasActiveSubscription, requestNotificationPermissionAndSubscribe, type NotificationReadiness } from "../../lib/push/client";
 import { BrutalButton, BrutalCard } from "../../components/Brutal";
 
 const STATUS_COPY: Record<NotificationReadiness, string> = {
@@ -11,6 +11,7 @@ const STATUS_COPY: Record<NotificationReadiness, string> = {
   "needs-install": "Add RemindMe to your Home Screen first (Share → Add to Home Screen), then come back here.",
   "needs-permission": "Not enabled yet.",
   denied: "Blocked — enable notifications for this site in your browser settings.",
+  "not-configured": "Something went wrong enabling push on this device. Try again — if it keeps failing, the server may not be configured correctly.",
   ready: "Enabled. Reminders will notify you even if you close the app.",
 };
 
@@ -23,6 +24,15 @@ export default function SettingsPage() {
 
   useEffect(() => {
     getPreferences().then((p) => setAutoDeleteDefault(p.autoDeleteDefault));
+  }, []);
+
+  useEffect(() => {
+    if (status !== "ready") return;
+    hasActiveSubscription().then((has) => {
+      if (!has) setStatus("needs-permission");
+    });
+    // Only verify the initial "ready" read from getNotificationReadiness() on mount — not every status change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function toggleAutoDelete(value: boolean) {

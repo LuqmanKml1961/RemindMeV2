@@ -18,6 +18,7 @@ export type NotificationReadiness =
   | "needs-install" // iOS, not added to Home Screen yet
   | "needs-permission"
   | "denied"
+  | "not-configured" // permission granted, but the server isn't set up for push (missing VAPID key, or subscribe save failed)
   | "ready";
 
 export function getNotificationReadiness(): NotificationReadiness {
@@ -28,6 +29,21 @@ export function getNotificationReadiness(): NotificationReadiness {
   if (Notification.permission === "denied") return "denied";
   if (Notification.permission === "granted") return "ready";
   return "needs-permission";
+}
+
+// Notification.permission can be "granted" from a past attempt even if no subscription was ever
+// actually saved (e.g. this exact bug: the server had no VAPID key configured at the time). Use
+// this to confirm there's a real, live subscription before trusting a "ready" status.
+export async function hasActiveSubscription(): Promise<boolean> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return false;
+    const subscription = await registration.pushManager.getSubscription();
+    return !!subscription;
+  } catch {
+    return false;
+  }
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -48,25 +64,34 @@ export async function requestNotificationPermissionAndSubscribe(): Promise<Notif
 
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!vapidPublicKey) {
-    console.warn("NEXT_PUBLIC_VAPID_PUBLIC_KEY missing — cannot subscribe to push");
-    return "ready";
+    console.error("NEXT_PUBLIC_VAPID_PUBLIC_KEY missing from this build — cannot subscribe to push");
+    return "not-configured";
   }
 
-  const registration = await navigator.serviceWorker.ready;
-  let subscription = await registration.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
+      });
+    }
+
+    const deviceId = await getDeviceId();
+    const response = await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId, subscription: subscription.toJSON() }),
     });
+    if (!response.ok) {
+      console.error("Saving push subscription failed", response.status, await response.text().catch(() => ""));
+      return "not-configured";
+    }
+  } catch (err) {
+    console.error("Push subscribe failed", err);
+    return "not-configured";
   }
-
-  const deviceId = await getDeviceId();
-  await fetch("/api/push/subscribe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ deviceId, subscription: subscription.toJSON() }),
-  });
 
   return "ready";
 }
