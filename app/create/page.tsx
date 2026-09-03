@@ -10,6 +10,7 @@ import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { Switch } from "../../components/ui/switch";
 import { Separator } from "../../components/ui/separator";
+import { DatePicker } from "../../components/ui/date-picker";
 import { PageTransition } from "../../components/PageTransition";
 import { db, newId } from "../../lib/db/dexie";
 import { createReminder, updateReminder } from "../../lib/db/reminders";
@@ -204,7 +205,7 @@ function CreateReminderForm() {
               </Button>
             ))}
           </div>
-          <Input type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <DatePicker value={dueDate || undefined} onValueChange={(v) => setDueDate(v ?? "")} />
         </div>
 
         <div className="space-y-2">
