@@ -61,8 +61,8 @@ export function BottomNav() {
     <>
       {/* Mobile / tablet — floating bottom pill that overlaps the system nav bar,
           with inner safe-padding so icons/labels never sit under the home indicator */}
-      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 px-3 lg:hidden">
-        <div className="mx-auto grid w-full max-w-md grid-cols-4 rounded-2xl border bg-card pt-2 px-3 pb-[calc(env(safe-area-inset-bottom)+0.375rem)] shadow-lg shadow-black/10">
+      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 px-2 lg:hidden">
+        <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-2 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1 shadow-lg shadow-black/10">
           {ITEMS.map((item) => {
             const active = isActive(item.href, pathname);
             const Icon = item.icon;
@@ -72,7 +72,7 @@ export function BottomNav() {
                 href={item.href}
                 transitionTypes={["nav-forward"]}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-xl py-2 text-[0.7rem] font-medium transition-colors",
+                  "flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[0.7rem] font-medium transition-colors",
                   active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -88,7 +88,7 @@ export function BottomNav() {
       <nav
         aria-label="Primary"
         className={cn(
-          "hidden lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:shrink-0 lg:flex-col lg:border-r",
+          "relative hidden lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:shrink-0 lg:flex-col lg:border-r",
           "lg:w-60 lg:transition-[width] lg:duration-200",
           collapsed && "lg:w-16"
         )}
@@ -105,15 +105,20 @@ export function BottomNav() {
             </span>
             {!collapsed && <span className="text-base font-semibold tracking-tight">RemindMe</span>}
           </span>
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-          </button>
         </div>
+        {/* Collapse toggle — straddles the rail edge so it sits outside when collapsed */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn(
+            "absolute right-0 z-10 flex size-6 shrink-0 -translate-x-1/2 items-center justify-center",
+            "top-[calc(env(safe-area-inset-top)+2.5rem)] rounded-full border bg-background text-muted-foreground shadow-sm",
+            "transition-colors hover:bg-muted hover:text-foreground"
+          )}
+        >
+          {collapsed ? <PanelLeftOpen className="size-3.5" /> : <PanelLeftClose className="size-3.5" />}
+        </button>
 
         <div className={cn("flex flex-col gap-1 py-3", collapsed ? "px-2" : "px-3")}>
           {ITEMS.map((item) => {
