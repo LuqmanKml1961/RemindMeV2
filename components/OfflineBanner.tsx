@@ -13,7 +13,7 @@ export function OfflineBanner() {
   return (
     <div
       role="status"
-      className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-amber-500 px-4 py-1.5 text-center text-xs font-medium text-white"
+      className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-amber-500 px-4 pt-[env(safe-area-inset-top)] pb-1.5 text-center text-xs font-medium text-white"
     >
       <WifiOff className="size-3.5" />
       You are offline. Your data is safe on this device.

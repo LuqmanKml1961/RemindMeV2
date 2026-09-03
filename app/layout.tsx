@@ -64,7 +64,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <PwaRegister />
           <OfflineBanner />
-          <main className="mx-auto w-full max-w-lg flex-1 px-4 pb-24 pt-6">{children}</main>
+          <main className="mx-auto w-full max-w-lg flex-1 px-4 pb-24 pt-[calc(env(safe-area-inset-top)+1.5rem)]">
+            {children}
+          </main>
           <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-lg">
             <BottomNav />
           </div>

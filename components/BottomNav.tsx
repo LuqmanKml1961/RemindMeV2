@@ -17,7 +17,7 @@ export function BottomNav() {
   if (pathname.startsWith("/onboarding") || pathname.startsWith("/import")) return null;
 
   return (
-    <nav className="grid grid-cols-4 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <nav className="grid grid-cols-4 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-card/80">
       {ITEMS.map((item) => {
         const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
         const Icon = item.icon;
