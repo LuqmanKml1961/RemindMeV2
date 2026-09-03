@@ -1,4 +1,4 @@
-const CACHE_NAME = "remindme-shell-v4";
+const CACHE_NAME = "remindme-shell-v5";
 const ASSET_CACHE = "remindme-assets-v3";
 const OFFLINE_URL = "/offline";
 
