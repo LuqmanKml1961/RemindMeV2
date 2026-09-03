@@ -59,12 +59,10 @@ export function BottomNav() {
 
   return (
     <>
-      {/* Mobile / tablet — floating bottom pill, seated above the home indicator */}
-      <nav
-        aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(env(safe-area-inset-bottom),0.5rem)] lg:hidden"
-      >
-        <div className="mx-auto grid w-full max-w-md grid-cols-4 rounded-2xl border bg-card p-1.5 shadow-lg shadow-black/10">
+      {/* Mobile / tablet — floating bottom pill that overlaps the system nav bar,
+          with inner safe-padding so icons/labels never sit under the home indicator */}
+      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 px-3 lg:hidden">
+        <div className="mx-auto grid w-full max-w-md grid-cols-4 rounded-2xl border bg-card pt-2 px-3 pb-[calc(env(safe-area-inset-bottom)+0.375rem)] shadow-lg shadow-black/10">
           {ITEMS.map((item) => {
             const active = isActive(item.href, pathname);
             const Icon = item.icon;
