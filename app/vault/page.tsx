@@ -70,7 +70,7 @@ export default function VaultPage() {
           <Input placeholder="Search..." value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" />
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           {filtered.map((entry) => (
             <Card key={entry.id}>
               <CardContent className="flex items-start justify-between gap-2">

@@ -39,7 +39,7 @@ export default function TodoPage() {
           </Button>
         </form>
 
-        <div className="flex flex-col gap-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           {pending.map((todo) => (
             <label
               key={todo.id}
@@ -65,7 +65,7 @@ export default function TodoPage() {
               <CheckCircle2 className="size-4" />
               Completed ({done.length})
             </summary>
-            <div className="mt-3 flex flex-col gap-2">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {done.map((todo) => (
                 <label
                   key={todo.id}
