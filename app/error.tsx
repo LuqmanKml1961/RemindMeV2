@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { BrutalButton } from "../components/Brutal";
+import { Button } from "../components/ui/button";
+import { TriangleAlert } from "lucide-react";
 
 export default function Error({
   error,
@@ -16,12 +17,15 @@ export default function Error({
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-      <p className="font-black uppercase tracking-tight text-accent-red">Something went wrong</p>
-      <p className="max-w-sm text-sm text-muted-fg">
+      <div className="flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+        <TriangleAlert className="size-7" />
+      </div>
+      <p className="font-semibold">Something went wrong</p>
+      <p className="max-w-sm text-sm text-muted-foreground">
         An unexpected error occurred. Your data is still safe on this device.
-        {error.digest ? <span className="block font-mono text-xs">Digest: {error.digest}</span> : null}
+        {error.digest ? <span className="mt-1 block text-xs font-mono">Digest: {error.digest}</span> : null}
       </p>
-      <BrutalButton onClick={retry}>Try again</BrutalButton>
+      <Button onClick={retry}>Try again</Button>
     </div>
   );
 }

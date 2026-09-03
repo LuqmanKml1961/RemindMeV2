@@ -4,10 +4,11 @@ import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus, CheckCircle2 } from "lucide-react";
 import { db } from "../lib/db/dexie";
 import { getPreferences } from "../lib/db/preferences";
 import { ReminderCard } from "../components/ReminderCard";
-import { BrutalButton } from "../components/Brutal";
+import { Button } from "../components/ui/button";
 import { PageTransition } from "../components/PageTransition";
 
 export default function HomePage() {
@@ -30,18 +31,22 @@ export default function HomePage() {
 
   return (
     <PageTransition>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-black uppercase tracking-tight">RemindMe</h1>
-          <Link href="/create" transitionTypes={["nav-forward"]}>
-            <BrutalButton fill className="px-4 py-2 text-sm">
-              + New
-            </BrutalButton>
-          </Link>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Reminders</h1>
+            <p className="text-sm text-muted-foreground">Stay on top of what matters.</p>
+          </div>
+          <Button render={<Link href="/create" transitionTypes={["nav-forward"]} />}>
+            <Plus /> New
+          </Button>
         </div>
 
         {reminders && reminders.length === 0 && (
-          <p className="mt-8 text-center text-sm text-muted-fg">No reminders yet. Tap “+ New” to create one.</p>
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">
+            <p>No reminders yet.</p>
+            <p>Tap “New” to create one.</p>
+          </div>
         )}
 
         <div className="flex flex-col gap-3">
@@ -51,8 +56,11 @@ export default function HomePage() {
         </div>
 
         {completed.length > 0 && (
-          <details className="mt-4">
-            <summary className="cursor-pointer text-xs font-bold uppercase text-muted-fg">Completed ({completed.length})</summary>
+          <details className="group mt-2">
+            <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground">
+              <CheckCircle2 className="size-4" />
+              Completed ({completed.length})
+            </summary>
             <div className="mt-3 flex flex-col gap-3">
               {completed.map((r) => (
                 <ReminderCard key={r.id} reminder={r} />

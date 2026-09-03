@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Home, ListChecks, Vault, Settings } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const ITEMS = [
-  { href: "/", label: "Home" },
-  { href: "/todo", label: "Todo" },
-  { href: "/vault", label: "Vault" },
-  { href: "/settings", label: "Settings" },
+  { href: "/", label: "Home", icon: Home },
+  { href: "/todo", label: "Todo", icon: ListChecks },
+  { href: "/vault", label: "Vault", icon: Vault },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function BottomNav() {
@@ -15,19 +17,22 @@ export function BottomNav() {
   if (pathname.startsWith("/onboarding") || pathname.startsWith("/import")) return null;
 
   return (
-    <nav className="sticky bottom-0 z-10 grid grid-cols-4 border-t-2 border-border bg-bg">
+    <nav className="grid grid-cols-4 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       {ITEMS.map((item) => {
         const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+        const Icon = item.icon;
         return (
           <Link
             key={item.href}
             href={item.href}
             transitionTypes={["nav-forward"]}
-            className={`border-r-2 border-border py-3 text-center text-xs font-bold uppercase tracking-wide last:border-r-0 ${
-              active ? "bg-fg text-bg" : "text-fg"
-            }`}
+            className={cn(
+              "flex flex-col items-center gap-0.5 py-2 text-[0.7rem] font-medium transition-colors",
+              active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+            )}
           >
-            {item.label}
+            <Icon className={cn("size-5", active && "text-primary")} />
+            <span className={cn(active && "font-semibold")}>{item.label}</span>
           </Link>
         );
       })}

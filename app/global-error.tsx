@@ -17,9 +17,9 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", backgroundColor: "#f4f2ec", color: "#121212" }}>
+      <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", backgroundColor: "#faf9f7", color: "#121212" }}>
         <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, textAlign: "center", padding: 24 }}>
-          <p style={{ fontSize: 18, fontWeight: 900, textTransform: "uppercase", color: "#d90429" }}>
+          <p style={{ fontSize: 18, fontWeight: 600, color: "#d90429" }}>
             Something went wrong
           </p>
           <p style={{ fontSize: 14, color: "#636363", maxWidth: 320 }}>
@@ -27,7 +27,7 @@ export default function GlobalError({
           </p>
           <button
             onClick={retry}
-            style={{ border: "2px solid #121212", background: "#121212", color: "#f4f2ec", padding: "10px 24px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", cursor: "pointer" }}
+            style={{ background: "#121212", color: "#faf9f7", padding: "10px 24px", fontWeight: 500, borderRadius: 10, cursor: "pointer", border: "none" }}
           >
             Try again
           </button>
