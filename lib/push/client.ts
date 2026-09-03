@@ -10,7 +10,11 @@ export function isStandalone(): boolean {
 
 export function isIos(): boolean {
   if (typeof window === "undefined") return false;
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const ua = window.navigator.userAgent;
+  const nav = window.navigator as Navigator & { maxTouchPoints?: number; platform?: string };
+  // iPadOS 13+ reports as a Mac in the UA, but has touch points and a "MacIntel" platform.
+  if (/macintosh/i.test(ua) && nav.maxTouchPoints && nav.maxTouchPoints > 1) return true;
+  return /iphone|ipad|ipod/i.test(ua);
 }
 
 export type NotificationReadiness =
@@ -78,10 +82,17 @@ export async function requestNotificationPermissionAndSubscribe(): Promise<Notif
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
     if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
-      });
+      try {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
+        });
+      } catch (subscribeErr) {
+        // On Android/Chrome, a stale permission can throw InvalidStateError. Return a distinct
+        // status so the UI can guide the user to reset site settings rather than silently failing.
+        console.error("Push subscribe failed", subscribeErr);
+        return "not-configured";
+      }
     }
 
     const deviceId = await getDeviceId();

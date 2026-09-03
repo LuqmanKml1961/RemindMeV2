@@ -39,6 +39,16 @@ for (const t of targets) {
   console.log("wrote", t.file);
 }
 
+// Monochrome (single colour) badge icon for Android notification status-bar icon.
+// Android renders this on a solid background and masks it — it must be all one colour
+// (here: white) on a transparent canvas, NOT the full-colour app icon.
+const badgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <text x="50%" y="52%" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="60" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">R</text>
+</svg>`;
+const badgePng = await sharp(Buffer.from(badgeSvg)).png().toBuffer();
+await writeFile(path.join(OUT_DIR, "icon-badge.png"), badgePng);
+console.log("wrote icon-badge.png");
+
 // Also drop a favicon-ish 32px version for good measure.
 const favicon = await sharp(Buffer.from(svg({ size: 64, padding: 0, bg: "#121212", fg: "#f4f2ec" }))).png().toBuffer();
 await writeFile(path.join(process.cwd(), "public", "icon.png"), favicon);

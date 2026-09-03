@@ -5,6 +5,13 @@ self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
 });
 
+// Respond to SKIP_WAITING messages from PwaRegister so new deploys take over promptly.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
@@ -52,14 +59,18 @@ self.addEventListener("push", (event) => {
     // ignore malformed payloads
   }
 
+  // requireInteraction is only supported in Chromium browsers — using it on
+  // iOS/Safari/Firefox silently breaks the notification or has no effect.
+  const isChromium = /chrome|chromium|edg/i.test(self.navigator.userAgent);
+
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      badge: "/icons/icon-badge.png",
       tag: data.reminderId ? `reminder-${data.reminderId}` : undefined,
       data: { reminderId: data.reminderId },
-      requireInteraction: true,
+      requireInteraction: isChromium,
     })
   );
 });
@@ -73,11 +84,15 @@ self.addEventListener("notificationclick", (event) => {
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if ("focus" in client) {
-          client.navigate(targetUrl);
+          if ("navigate" in client && client.url && client.url.split("#")[0].split("?")[0] === new URL(targetUrl, self.location.origin).pathname) {
+            client.navigate(targetUrl);
+          }
           return client.focus();
         }
       }
-      return self.clients.openWindow(targetUrl);
+      // Note: iOS Safari historically rejects openWindow from a notification-click,
+      // throwing a TypeError — guard so the promise rejects gracefully.
+      return self.clients.openWindow(targetUrl).catch(() => undefined);
     })
   );
 });
