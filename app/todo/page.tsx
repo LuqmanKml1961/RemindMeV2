@@ -39,11 +39,11 @@ export default function TodoPage() {
           </Button>
         </form>
 
-        <div className="flex flex-col gap-2">
+        <div className="grid gap-2 sm:grid-cols-2 sm:auto-rows-fr">
           {pending.map((todo) => (
             <label
               key={todo.id}
-              className="flex items-center gap-3 rounded-lg border bg-card px-3 py-3 text-card-foreground"
+              className="flex min-h-12 items-center gap-3 rounded-lg border bg-card px-3 py-3 text-card-foreground"
             >
               <Checkbox checked={todo.isCompleted} onCheckedChange={() => toggleTodo(todo)} />
               <span className="flex-1">{todo.text}</span>
@@ -52,12 +52,12 @@ export default function TodoPage() {
               </Button>
             </label>
           ))}
-          {pending.length === 0 && (
-            <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
-              Nothing to do. Nice.
-            </p>
-          )}
         </div>
+        {pending.length === 0 && (
+          <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+            Nothing to do. Nice.
+          </p>
+        )}
 
         {done.length > 0 && (
           <details className="group mt-2">
@@ -65,11 +65,11 @@ export default function TodoPage() {
               <CheckCircle2 className="size-4" />
               Completed ({done.length})
             </summary>
-            <div className="mt-3 flex flex-col gap-2">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 sm:auto-rows-fr">
               {done.map((todo) => (
                 <label
                   key={todo.id}
-                  className="flex items-center gap-3 rounded-lg border bg-card px-3 py-3 text-card-foreground opacity-60"
+                  className="flex min-h-12 items-center gap-3 rounded-lg border bg-card px-3 py-3 text-card-foreground opacity-60"
                 >
                   <Checkbox checked={todo.isCompleted} onCheckedChange={() => toggleTodo(todo)} />
                   <span className="flex-1 line-through">{todo.text}</span>

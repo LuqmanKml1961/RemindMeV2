@@ -60,15 +60,17 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={cn("h-full", "font-sans", geist.variable)} suppressHydrationWarning>
-      <body className="flex min-h-full flex-col antialiased">
+      <body className="min-h-full antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <PwaRegister />
           <OfflineBanner />
-          <main className="mx-auto w-full max-w-lg flex-1 px-4 pb-24 pt-[calc(env(safe-area-inset-top)+1.5rem)]">
-            {children}
-          </main>
-          <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-lg">
+          <div className="lg:flex lg:min-h-[100dvh]">
             <BottomNav />
+            <main className="w-full px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-28 sm:px-6 lg:flex-1 lg:px-8 lg:pb-12 xl:px-12">
+              <div className="mx-auto w-full max-w-3xl">
+                {children}
+              </div>
+            </main>
           </div>
           <Toaster position="top-center" />
         </ThemeProvider>

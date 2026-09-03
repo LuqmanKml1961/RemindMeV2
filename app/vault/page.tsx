@@ -70,10 +70,10 @@ export default function VaultPage() {
           <Input placeholder="Search..." value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" />
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="grid gap-2 sm:grid-cols-2 sm:auto-rows-fr">
           {filtered.map((entry) => (
-            <Card key={entry.id}>
-              <CardContent className="flex items-start justify-between gap-2">
+            <Card key={entry.id} className="h-full">
+              <CardContent className="flex h-full items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{entry.title}</p>
                   {entry.note && <p className="mt-1 text-sm whitespace-pre-wrap text-muted-foreground">{entry.note}</p>}
@@ -89,12 +89,12 @@ export default function VaultPage() {
               </CardContent>
             </Card>
           ))}
-          {filtered.length === 0 && (
-            <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
-              Nothing here yet.
-            </p>
-          )}
         </div>
+        {filtered.length === 0 && (
+          <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+            Nothing here yet.
+          </p>
+        )}
 
         {adding ? (
           <form onSubmit={handleAdd} className="flex flex-col gap-3 rounded-xl border bg-card p-4">
