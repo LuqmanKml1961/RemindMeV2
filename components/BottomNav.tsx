@@ -62,7 +62,7 @@ export function BottomNav() {
       {/* Mobile / tablet — floating bottom pill that overlaps the system nav bar,
           with inner safe-padding so icons/labels never sit under the home indicator */}
       <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 px-2 lg:hidden">
-        <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-2 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1 shadow-lg shadow-black/10">
+        <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-1.5 pb-[calc(env(safe-area-inset-bottom)+0.375rem)] pt-1.5 shadow-lg shadow-black/10">
           {ITEMS.map((item) => {
             const active = isActive(item.href, pathname);
             const Icon = item.icon;
@@ -72,12 +72,21 @@ export function BottomNav() {
                 href={item.href}
                 transitionTypes={["nav-forward"]}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[0.7rem] font-medium transition-colors",
-                  active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  "flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[0.7rem] font-medium transition-all",
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 <Icon className="size-5" />
-                <span>{item.label}</span>
+                <span
+                  className={cn(
+                    "transition-all",
+                    active ? "max-h-4 opacity-100" : "max-h-0 overflow-hidden opacity-0"
+                  )}
+                >
+                  {item.label}
+                </span>
               </Link>
             );
           })}
@@ -106,14 +115,15 @@ export function BottomNav() {
             {!collapsed && <span className="text-base font-semibold tracking-tight">RemindMe</span>}
           </span>
         </div>
-        {/* Collapse toggle — straddles the rail edge so it sits outside when collapsed */}
+        {/* Collapse toggle — sits on the outside edge of the rail so it never
+            looks like part of the collapsed section */}
         <button
           type="button"
           onClick={toggleCollapsed}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className={cn(
-            "absolute right-0 z-10 flex size-6 shrink-0 -translate-x-1/2 items-center justify-center",
-            "top-[calc(env(safe-area-inset-top)+2.5rem)] rounded-full border bg-background text-muted-foreground shadow-sm",
+            "absolute -right-3 top-[calc(env(safe-area-inset-top)+2.75rem)] z-20 flex size-6 shrink-0 items-center justify-center",
+            "rounded-full border bg-background text-muted-foreground shadow-sm",
             "transition-colors hover:bg-muted hover:text-foreground"
           )}
         >
