@@ -40,8 +40,8 @@ export function ReminderCard({ reminder }: { reminder: Reminder }) {
   const overdue = reminder.dueDate && !reminder.isCompleted && new Date(reminder.dueDate).getTime() < now;
 
   return (
-    <Card className={`border-l-4 ${TYPE_ACCENT[reminder.type]} ${reminder.isCompleted ? "opacity-60" : ""}`}>
-      <div className="flex items-start justify-between gap-3 px-4">
+    <Card className={`flex h-full flex-col border-l-4 ${TYPE_ACCENT[reminder.type]} ${reminder.isCompleted ? "opacity-60" : ""}`}>
+      <div className="flex flex-1 items-start justify-between gap-3 px-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className={`truncate font-medium ${reminder.isCompleted ? "line-through" : ""}`}>{reminder.title}</p>

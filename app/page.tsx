@@ -49,7 +49,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 sm:auto-rows-fr">
           {active.map((r) => (
             <ReminderCard key={r.id} reminder={r} />
           ))}
@@ -61,7 +61,7 @@ export default function HomePage() {
               <CheckCircle2 className="size-4" />
               Completed ({completed.length})
             </summary>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 sm:auto-rows-fr">
               {completed.map((r) => (
                 <ReminderCard key={r.id} reminder={r} />
               ))}
