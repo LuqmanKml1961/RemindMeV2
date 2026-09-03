@@ -4,8 +4,8 @@ import * as React from "react";
 import { useTheme } from "next-themes";
 
 const COLORS: Record<string, string> = {
-  light: "#fdfcf9",
-  dark: "#080706",
+  light: "#ffffff",
+  dark: "#000000",
 };
 
 const TAG_ID = "theme-color-dynamic";
