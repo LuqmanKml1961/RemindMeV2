@@ -1,5 +1,5 @@
-const CACHE_NAME = "remindme-shell-v2";
-const ASSET_CACHE = "remindme-assets-v1";
+const CACHE_NAME = "remindme-shell-v3";
+const ASSET_CACHE = "remindme-assets-v2";
 const OFFLINE_URL = "/offline";
 
 // Pre-cached on install. Crucially these are served cache-first from the SW on every navigation
