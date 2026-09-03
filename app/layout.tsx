@@ -3,6 +3,12 @@ import "./globals.css";
 import { BottomNav } from "../components/BottomNav";
 import { PwaRegister } from "../components/PwaRegister";
 import { OfflineBanner } from "../components/OfflineBanner";
+import { ThemeProvider } from "../components/theme-provider";
+import { Toaster } from "../components/ui/sonner";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://remind-me-v2.vercel.app"),
@@ -10,7 +16,8 @@ export const metadata: Metadata = {
     default: "RemindMe — Local-first reminder app",
     template: "%s · RemindMe",
   },
-  description: "A local-first reminder app. No accounts, no cloud. Reminders, medications, bills, vault, and to-dos stay entirely on your device.",
+  description:
+    "A local-first reminder app. No accounts, no cloud. Reminders, medications, bills, vault, and to-dos stay entirely on your device.",
   manifest: "/manifest.webmanifest",
   applicationName: "RemindMe",
   formatDetection: { telephone: false },
@@ -42,8 +49,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f2ec" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d0d0d" },
+    { media: "(prefers-color-scheme: light)", color: "#faf9f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c0b09" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -52,14 +59,19 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className={cn("h-full", "font-sans", geist.variable)} suppressHydrationWarning>
       <body className="flex min-h-full flex-col antialiased">
-        <PwaRegister />
-        <OfflineBanner />
-        <main className="mx-auto w-full max-w-lg flex-1 px-4 pb-4 pt-6">{children}</main>
-        <div className="mx-auto w-full max-w-lg">
-          <BottomNav />
-        </div>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <PwaRegister />
+          <OfflineBanner />
+          <main className="mx-auto w-full max-w-lg flex-1 px-4 pb-24 pt-[calc(env(safe-area-inset-top)+1.5rem)]">
+            {children}
+          </main>
+          <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-lg">
+            <BottomNav />
+          </div>
+          <Toaster position="top-center" />
+        </ThemeProvider>
       </body>
     </html>
   );

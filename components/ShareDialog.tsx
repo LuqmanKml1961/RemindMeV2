@@ -4,7 +4,15 @@ import { useState } from "react";
 import type { Reminder } from "../lib/domain/types";
 import { buildShareLink, buildShareText } from "../lib/domain/share";
 import { copyToClipboard } from "../lib/clipboard";
-import { BrutalButton, BrutalCard } from "./Brutal";
+import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 export function ShareDialog({ reminder, onClose }: { reminder: Reminder; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -34,23 +42,24 @@ export function ShareDialog({ reminder, onClose }: { reminder: Reminder; onClose
   }
 
   return (
-    <div className="motion-fade fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={onClose}>
-      <BrutalCard className="motion-sheet w-full max-w-sm bg-card">
-        <div onClick={(e) => e.stopPropagation()}>
-          <h2 className="text-lg font-bold uppercase">Share Reminder</h2>
-          <p className="mt-2 text-sm text-muted-fg">
-            Share &quot;{reminder.title}&quot; with others. They can import it into RemindMe via the link — no account needed.
-          </p>
-          <div className="mt-4 flex gap-2">
-            <BrutalButton className="flex-1" onClick={copyLink}>
-              {copied ? "Copied!" : "Copy Link"}
-            </BrutalButton>
-            <BrutalButton className="flex-1" fill onClick={shareViaApps}>
-              Share
-            </BrutalButton>
-          </div>
-        </div>
-      </BrutalCard>
-    </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Share Reminder</DialogTitle>
+          <DialogDescription>
+            Share &quot;{reminder.title}&quot; with others. They can import it into RemindMe via the link — no
+            account needed.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" className="flex-1" onClick={copyLink}>
+            {copied ? "Copied!" : "Copy Link"}
+          </Button>
+          <Button className="flex-1" onClick={shareViaApps}>
+            Share
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

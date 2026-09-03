@@ -9,8 +9,8 @@
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
-  "background_color": "#f4f2ec",
-  "theme_color": "#f4f2ec",
+  "background_color": "#0c0b09",
+  "theme_color": "#0c0b09",
   "orientation": "portrait",
   "categories": ["productivity", "utilities", "health"],
   "icons": [
