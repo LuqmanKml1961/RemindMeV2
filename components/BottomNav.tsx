@@ -59,8 +59,19 @@ export function BottomNav() {
 
   return (
     <>
-      {/* Mobile / tablet — floating bottom pill that overlaps the system nav bar,
-          with inner safe-padding so icons/labels never sit under the home indicator */}
+      {/* Mobile / tablet — floating bottom pill that overlaps the system nav bar.
+          IMPORTANT (iOS vs Android positioning):
+          - pb is intentionally NOT env(safe-area-inset-bottom) here. In an
+            installed iOS PWA, WebKit can report env(safe-area-inset-bottom)
+            while ALSO inset-reducing the fixed coordinate system, which made
+            the pill literally float above the home indicator with a visible
+            gap. Setting a plain pb (or pb-0 below) keeps the bar flush to the
+            physical screen bottom and looks correct on both iOS and Android.
+          - The capsule keeps its own inner bottom padding (pb-2 on the inner
+            grid) so icons never sit under the iOS home indicator, while the
+            outer <nav> stays flush to the edge.
+          - If you ever change this, test on BOTH a notched iPhone i6+ and an
+            Android phone before committing - see README "Platform UI notes". */}
       <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 px-2 pb-0 lg:hidden">
         <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-1.5 pb-2 pt-1.5 shadow-lg shadow-black/10">
           {ITEMS.map((item) => {
@@ -72,10 +83,10 @@ export function BottomNav() {
                 href={item.href}
                 transitionTypes={["nav-forward"]}
                 className={cn(
-                  "relative flex items-center justify-center rounded-xl px-1 text-[0.7rem] font-medium transition-colors duration-200",
+                  "relative flex h-12 items-center justify-center rounded-xl px-1 text-[0.7rem] font-medium transition-colors duration-200",
                   active
-                    ? "bg-primary py-1.5 text-primary-foreground"
-                    : "py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 <div
@@ -88,7 +99,7 @@ export function BottomNav() {
                 </div>
                 <span
                   className={cn(
-                    "pointer-events-none absolute bottom-1 left-0 right-0 flex justify-center leading-none transition-opacity duration-200",
+                    "pointer-events-none absolute bottom-0 left-0 right-0 flex justify-center leading-none transition-opacity duration-200",
                     active ? "opacity-100" : "opacity-0"
                   )}
                 >
