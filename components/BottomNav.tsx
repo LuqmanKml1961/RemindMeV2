@@ -61,8 +61,8 @@ export function BottomNav() {
     <>
       {/* Mobile / tablet — floating bottom pill that overlaps the system nav bar,
           with inner safe-padding so icons/labels never sit under the home indicator */}
-      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 px-2 lg:hidden">
-        <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-1.5 pb-[calc(env(safe-area-inset-bottom)+0.375rem)] pt-1.5 shadow-lg shadow-black/10">
+      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 px-2 pb-[env(safe-area-inset-bottom)] lg:hidden">
+        <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-1.5 pb-2 pt-1.5 shadow-lg shadow-black/10">
           {ITEMS.map((item) => {
             const active = isActive(item.href, pathname);
             const Icon = item.icon;
@@ -81,8 +81,8 @@ export function BottomNav() {
                 <Icon className="size-5" />
                 <span
                   className={cn(
-                    "transition-all",
-                    active ? "max-h-4 opacity-100" : "max-h-0 overflow-hidden opacity-0"
+                    "transition-opacity duration-200",
+                    active ? "opacity-100" : "opacity-0"
                   )}
                 >
                   {item.label}
