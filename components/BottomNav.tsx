@@ -72,16 +72,23 @@ export function BottomNav() {
                 href={item.href}
                 transitionTypes={["nav-forward"]}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[0.7rem] font-medium transition-all",
+                  "relative flex items-center justify-center rounded-xl px-1 text-[0.7rem] font-medium transition-colors duration-200",
                   active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-primary py-1.5 text-primary-foreground"
+                    : "py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Icon className="size-5" />
+                <div
+                  className={cn(
+                    "flex flex-col items-center justify-center transition-transform duration-200",
+                    active && "translate-y-[-0.5rem]"
+                  )}
+                >
+                  <Icon className="size-5 shrink-0" />
+                </div>
                 <span
                   className={cn(
-                    "transition-opacity duration-200",
+                    "pointer-events-none absolute bottom-1 left-0 right-0 flex justify-center leading-none transition-opacity duration-200",
                     active ? "opacity-100" : "opacity-0"
                   )}
                 >
