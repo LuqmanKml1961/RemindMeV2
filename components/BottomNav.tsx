@@ -59,13 +59,14 @@ export function BottomNav() {
 
   return (
     <>
-      {/* Mobile / tablet — full-width bottom bar. The safe-area inset is bar
-          padding so the background extends behind the iOS home indicator;
-          env() = 0 on Android, so no padding there. */}
+      {/* Mobile / tablet — full-width grounded bar. Keep it compact (no env()
+          padding): on iOS the viewport ends at the top of the home-indicator
+          zone, so padding only creates dead space inside the bar. The zone
+          below is painted with the card color via the body background
+          (globals.css), making the bar read as reaching the physical bottom. */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 border-t bg-card px-2 pt-1.5 lg:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        className="fixed inset-x-0 bottom-0 z-40 border-t bg-card px-2 pt-1.5 pb-2 lg:hidden"
       >
         <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1">
           {ITEMS.map((item) => {

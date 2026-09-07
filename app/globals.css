@@ -125,9 +125,11 @@
   }
   html {
     @apply font-sans;
+    background-color: var(--card);
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
+    background-color: var(--card);
     -webkit-tap-highlight-color: transparent;
     overflow-anchor: none;
   }

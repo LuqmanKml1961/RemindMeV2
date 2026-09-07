@@ -69,22 +69,24 @@ So there's a minimal Next.js API + database that stores **only**: your push subs
 
 ### Top takeaways
 
-1. **The bottom nav is a full-width grounded bar, not a floating capsule.** The bar is `fixed bottom-0` with a solid `bg-card` background, and the safe-area inset is applied as **bar padding** (`paddingBottom: env(safe-area-inset-bottom)`) so the background extends behind the iOS home indicator while the icons stay clear. On Android `env()` = 0, so it renders as a normal bar.
-2. **Measured on a real iPhone 17: `innerHeight` (812) = `screen.height` (874) minus the top inset (~28px) minus `env-bottom` (34px),** so `env()` is nonzero and works; the layout viewport ends at the top of the home-indicator zone.
-3. **Do NOT fix with device emulators.** Edge DevTools reported `env()=0` and `innerHeight==screen.height`, which contradicted the real device. Trust only installed-PWA measurements from a real phone.
-4. **Test on BOTH platforms after any change.** Minimum matrix: a notched iPhone (X/11/12/13/14/15/16/17) opened as an **installed Home Screen app**, and an Android phone in Chrome.
+1. **The bottom nav is a compact full-width grounded bar** (`components/BottomNav.tsx`): `fixed bottom-0`, solid `bg-card`, top border. **Do NOT add `env(safe-area-inset-bottom)` padding to the bar** — on iOS the layout viewport ends at the top of the home-indicator zone (782→812 on a real iPhone 17), so `env()` padding renders as empty space *inside* the bar.
+2. **The "gap" under the bar is the clipped home-indicator zone, painted with the `html`/`body` background.** We make it match the bar by setting `html`/`body` to `var(--card)` in `app/globals.css` and giving the page content its own `bg-background` (on `<main>`). The bar + that strip read as one continuous surface reaching the physical bottom; the home indicator floats on it. This is the standard iOS tab-bar look.
+3. **Measured on a real iPhone 17: `innerHeight` (812) = `screen.height` (874) minus top inset (~28px) minus `env-bottom` (34px).** Content placed below `innerHeight` is clipped — negative offsets "cut off clean", JS offsets hid the whole bar once.
+4. **Do NOT fix with device emulators.** Edge DevTools reported `env()=0` and `innerHeight==screen.height`, which contradicted the real device. Trust only installed-PWA measurements from a real phone.
+5. **Test on BOTH platforms after any change.** Minimum matrix: a notched iPhone (X/11/12/13/14/15/16/17) opened as an **installed Home Screen app**, and an Android phone in Chrome.
 
 ### Adjusting the bar
 
 All in `components/BottomNav.tsx` (mobile block):
 
-- **Bar background reaching the bottom** → the outer `<nav>`: `bottom-0` + `paddingBottom: env(safe-area-inset-bottom)`. Do **not** use negative `bottom` offsets or JS-measured heights — both clip or hide the bar on iOS (all tried).
-- **Icons clear of the home indicator** → the inner `pt-1.5` / button `h-11`. `env()` padding handles the bottom clearance.
+- **Bar reaching the bottom** → keep it compact (`bottom-0`, no `env()` padding). The strip below is bridged by the `html`/`body` card background in `globals.css` — if the gap color ever mismatches the bar, that identity is what to change.
+- **Page background** → `<main>` in `app/layout.tsx` carries `bg-background` + `min-h-[100dvh]` so the visible page keeps the app background color above the bar.
+- **Icons clear of the bottom** → the inner `pt-1.5`/`pb-2` + button `h-11`.
 - **Page content clearing the bar** → main's `pb-28` in `app/layout.tsx`.
 
 ### Background (so you don't undo it)
 
-The bar was originally a floating capsule, and attempts to change its iOS position all failed on a real iPhone 17: JS `screen.height − innerHeight` negative offset (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge), `env()+12px` padding (capsule floated in empty space). On-device diagnostics (real iPhone 17, installed PWA): `innerH=812`, `screenH=874`, `env-bottom=34px`. Conclusion: a floating capsule can never fill the home-indicator zone; we switched the design to a **full-width grounded bar** (2026-09-07, commit `fa78f77`), which is the standard iOS pattern.
+The bar was originally a floating capsule; attempts to change its iOS position all failed on a real iPhone 17: JS `screen.height − innerHeight` negative offset (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge), `env()`-as-bar-padding (dead space *inside* the bar). On-device diagnostics (real iPhone 17, installed PWA): `innerH=812`, `screenH=874`, `env-bottom=34px`. Conclusion: a capsule can never fill the home-indicator zone, and `env()` padding can't either — so we use a **full-width grounded bar + card-colored body background** so the clipped zone blends into the bar (2026-09-07, commit `2bcff40`, revised `…`).
 
 ---
 

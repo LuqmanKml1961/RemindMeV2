@@ -66,7 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <OfflineBanner />
           <div className="lg:flex lg:min-h-[100dvh]">
             <BottomNav />
-            <main className="w-full px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-28 sm:px-6 lg:flex-1 lg:px-8 lg:pb-12 xl:px-12">
+            <main className="w-full min-h-[100dvh] bg-background px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-28 sm:px-6 lg:flex-1 lg:px-8 lg:pb-12 xl:px-12">
               <div className="mx-auto w-full max-w-3xl">
                 {children}
               </div>
