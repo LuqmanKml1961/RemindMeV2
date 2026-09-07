@@ -86,7 +86,7 @@ All in `components/BottomNav.tsx` (mobile block):
 
 ### Background (so you don't undo it)
 
-The bar was originally a floating capsule; attempts to change its iOS position all failed on a real iPhone 17: JS `screen.height − innerHeight` negative offset (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge), `env()`-as-bar-padding (dead space *inside* the bar). On-device diagnostics (real iPhone 17, installed PWA): `innerH=812`, `screenH=874`, `env-bottom=34px`. Conclusion: a capsule can never fill the home-indicator zone, and `env()` padding can't either — so we use a **full-width grounded bar + card-colored body background** so the clipped zone blends into the bar (2026-09-07, commit `2bcff40`, revised `…`).
+The bar was originally a floating capsule; attempts to change its iOS position all failed on a real iPhone 17: JS `screen.height − innerHeight` negative offset (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge), `env()`-as-bar-padding (dead space *inside* the bar). On-device diagnostics (real iPhone 17, installed PWA): `innerH=812`, `screenH=874`, `env-bottom=34px`. Conclusion: a capsule can never fill the home-indicator zone, and `env()` padding can't either — so we use a **full-width grounded bar + card-colored body background** so the clipped zone blends into the bar (2026-09-07, commits `fa78f77` → `f92381e`).
 
 ---
 
