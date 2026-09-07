@@ -64,14 +64,21 @@ export function BottomNav() {
           - The pill sits at bottom:0, flush to the fixed viewport's bottom edge.
           - iOS installed-PWA quirk: WebKit can anchor `fixed bottom: 0` to the
             content viewport rather than the physical screen, leaving a visible
-            gap under the pill. We compensate with a NEGATIVE env() bottom
-            offset below (bottom: -env(safe-area-inset-bottom)). This is SAFE:
-            env() is bounded by the real safe-area inset (never big enough to
-            hide the bar) and is 0 on Android/desktop, so it never affects them.
-            Do NOT replace this with a JS-measured offset such as
-            screen.height - innerHeight — that produced a huge unbounded value
-            and hid the whole nav on iPhone 17 Pro (see README "Platform UI
-            notes").
+            gap under the pill. We compensate with a NEGATIVE bottom offset
+            below (inline style: bottom: calc(-1 * env(safe-area-inset-bottom))).
+            This moves the bar DOWN by exactly the safe-area inset, closing the
+            gap under the pill.
+            - MUST be calc(-1 * env(...)), NOT -env(...). A bare -env(...) is
+              invalid CSS and drops the whole declaration -> bottom becomes auto
+              -> the fixed nav lands at its static position (top of the page).
+              That bug shipped and put the nav under the notch on iPhone 17 Pro.
+            - It is safe on every platform: env() is bounded by the real
+              safe-area inset (can never hide the bar), and is 0 on
+              Android/desktop, so bottom: -0 = bottom: 0 there.
+            - Do NOT replace this with a JS-measured offset such as
+              screen.height - innerHeight — that produced an unbounded value
+              and hid the whole nav on iPhone 17 Pro (see README "Platform UI
+              notes").
           - The capsule keeps its own inner bottom padding (pb-2) so icons
             never sit under the iOS home indicator.
           - If you ever change this, test on BOTH a notched iPhone (installed
@@ -79,7 +86,8 @@ export function BottomNav() {
             "Platform UI notes". */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-[-env(safe-area-inset-bottom)] z-40 px-2 pb-0 lg:hidden"
+        style={{ bottom: "calc(-1 * env(safe-area-inset-bottom))" }}
+        className="fixed inset-x-0 bottom-0 z-40 px-2 pb-0 lg:hidden"
       >
         <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-1.5 pb-2 pt-1.5 shadow-lg shadow-black/10">
           {ITEMS.map((item) => {
