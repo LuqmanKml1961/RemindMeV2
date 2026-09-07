@@ -59,29 +59,15 @@ export function BottomNav() {
 
   return (
     <>
-      {/* Mobile / tablet — floating bottom pill.
-          MEASURED FACTS (real iPhone 17, installed PWA):
-          - innerH (812) = screenH (874) - ~28px top inset - env-bottom (34px).
-            The layout viewport therefore ends exactly at the TOP of the iOS
-            home-indicator zone, and pillBottom == innerH -> the pill is flush
-            with the bottom of the renderable viewport.
-          - The strip of "empty space" under the pill is the 34px home-indicator
-            zone (env-bottom = 34px). It is SYSTEM UI: web content cannot
-            render in it (negative offsets clip there - "cut off clean"), and
-            every notched iPhone has it. A floating capsule sits above it by
-            design; this is the standard, correct iOS look.
-          - env() padding lifts the pill FURTHER above the zone (floating look),
-            negative offsets get clipped, JS offsets hid the whole bar once.
-            Keep plain bottom-0 pb-0.
-          - Only a full-width bar whose background fills the bottom applies
-            visually "to the bottom" - at the cost of this floating design.
-          - Test on BOTH a notched iPhone (installed PWA) and an Android phone
-            before committing - see README "Platform UI notes". */}
+      {/* Mobile / tablet — full-width bottom bar. The safe-area inset is bar
+          padding so the background extends behind the iOS home indicator;
+          env() = 0 on Android, so no padding there. */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 px-2 pb-0 lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t bg-card px-2 pt-1.5 lg:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-1.5 pb-2 pt-1.5 shadow-lg shadow-black/10">
+        <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1">
           {ITEMS.map((item) => {
             const active = isActive(item.href, pathname);
             const Icon = item.icon;

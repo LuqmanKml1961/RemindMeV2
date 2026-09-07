@@ -69,33 +69,22 @@ So there's a minimal Next.js API + database that stores **only**: your push subs
 
 ### Top takeaways
 
-1. **Measured on a real iPhone 17 (installed PWA): `innerHeight` (812) = `screen.height` (874) minus the top inset (~28px) minus `env(safe-area-inset-bottom)` (34px).** So the layout viewport ends exactly at the top of the iOS home-indicator zone, and the pill is flush with the bottom of the renderable viewport (`pillBottom == innerHeight`). `env-bottom=34px` proves `viewport-fit=cover` is active and `env()` works.
-2. **The strip of "empty space" under the pill is the 34px iOS home-indicator zone — system UI.** Web content cannot render inside it: negative `bottom` offsets clip there ("cut off clean" on device), JS offsets can hide the bar entirely, and `env()` *padding* lifts the pill up (the "floating" look). A floating capsule sits above the home pill by design; this is the standard, correct iOS appearance and cannot be eliminated with CSS.
-3. **Do NOT fix with device emulators.** Edge DevTools emulation reported `env()=0` and `innerHeight==screen.height`, which contradicted the real device and sent us in circles. Trust only installed-PWA measurements from a real phone.
-4. **The only way to read as "filled to the bottom" is a full-width bar** whose background extends behind the home indicator — at the cost of the floating-capsule design.
-5. **Test on BOTH platforms after any change.** Minimum matrix: a notched iPhone (X/11/12/13/14/15/16/17) opened as an **installed Home Screen app**, and an Android phone in Chrome.
+1. **The bottom nav is a full-width grounded bar, not a floating capsule.** The bar is `fixed bottom-0` with a solid `bg-card` background, and the safe-area inset is applied as **bar padding** (`paddingBottom: env(safe-area-inset-bottom)`) so the background extends behind the iOS home indicator while the icons stay clear. On Android `env()` = 0, so it renders as a normal bar.
+2. **Measured on a real iPhone 17: `innerHeight` (812) = `screen.height` (874) minus the top inset (~28px) minus `env-bottom` (34px),** so `env()` is nonzero and works; the layout viewport ends at the top of the home-indicator zone.
+3. **Do NOT fix with device emulators.** Edge DevTools reported `env()=0` and `innerHeight==screen.height`, which contradicted the real device. Trust only installed-PWA measurements from a real phone.
+4. **Test on BOTH platforms after any change.** Minimum matrix: a notched iPhone (X/11/12/13/14/15/16/17) opened as an **installed Home Screen app**, and an Android phone in Chrome.
 
-### Adjusting the bar's vertical position
-
-All in `components/BottomNav.tsx` (mobile block):
-
-- **Bar vertical position** → the outer `<nav>`: plain `bottom-0 pb-0` = flush with the renderable viewport bottom. The space below is the unrenderable home-indicator zone; padding/offsets will float, clip, or hide the bar (all tried).
-- **Gap above the home-indicator zone** → the inner capsule's `pb-2` (increase if capsule sits too low against the zone, decrease if it looks too tall).
-
-### How we got here (so you don't undo it)
-
-History: the original used `pb-[env(safe-area-inset-bottom)]`. Attempts to change the iOS position failed on a real iPhone 17: JS `screen.height − innerHeight` negative offset (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge), `env()+12px` padding (pill floated in empty space). On-device diagnostics: Edge DevTools said `env()=0`, `innerH=screenH` (misleading); a real iPhone 17 said `innerH=812`, `screenH=874`, `env-bottom=34px`, `pillBottom=innerH`. Conclusion: the pill is already flush with the renderable viewport bottom, and the 34px below is the iOS home-indicator zone (unrenderable system UI). `bottom-0 pb-0` is the data-backed correct state for a floating capsule.
-
-### Adjusting the bar's vertical position
+### Adjusting the bar
 
 All in `components/BottomNav.tsx` (mobile block):
 
-- **Bar reaching the renderable bottom** → the outer `<nav>`: plain `bottom-0 pb-0` (the `calc(-1 * env(...))` attempt was clipped by iOS and reverted — see history below). Do **not** add a negative bottom offset, JS-measured or `env()`-based.
-- **Gap between icons and the home indicator** → the inner capsule's `pb-2` (increase if icons get too close to the home indicator, decrease if it looks too tall).
+- **Bar background reaching the bottom** → the outer `<nav>`: `bottom-0` + `paddingBottom: env(safe-area-inset-bottom)`. Do **not** use negative `bottom` offsets or JS-measured heights — both clip or hide the bar on iOS (all tried).
+- **Icons clear of the home indicator** → the inner `pt-1.5` / button `h-11`. `env()` padding handles the bottom clearance.
+- **Page content clearing the bar** → main's `pb-28` in `app/layout.tsx`.
 
-### How we got here (so you don't undo it)
+### Background (so you don't undo it)
 
-History: the original used `pb-[env(safe-area-inset-bottom)]` on the outer `<nav>`, which made the pill float up ~34px on iOS (padding pushed it up). A JS measurement hook (`screen.height − innerHeight`) applying a **negative `bottom`** offset was then attempted — it made the entire nav disappear on iPhone 17 Pro and was reverted. Next, `bottom: -env(safe-area-inset-bottom)` was tried as a Tailwind class — invalid CSS, the declaration was dropped, and the nav jumped to the top of the page. The correct, current fix is the inline style `bottom: calc(-1 * env(safe-area-inset-bottom))` with `bottom-0` as CSS fallback. Keep padding-based safe-area clearance inside the capsule, not on the outer nav.
+The bar was originally a floating capsule, and attempts to change its iOS position all failed on a real iPhone 17: JS `screen.height − innerHeight` negative offset (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge), `env()+12px` padding (capsule floated in empty space). On-device diagnostics (real iPhone 17, installed PWA): `innerH=812`, `screenH=874`, `env-bottom=34px`. Conclusion: a floating capsule can never fill the home-indicator zone; we switched the design to a **full-width grounded bar** (2026-09-07, commit `fa78f77`), which is the standard iOS pattern.
 
 ---
 
