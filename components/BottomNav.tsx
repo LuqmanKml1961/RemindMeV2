@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSyncExternalStore, useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Home, ListChecks, Vault, Settings, BellRing, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,54 +49,6 @@ function isActive(href: string, pathname: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
-// TEMPORARY diagnostic overlay — remove once the iOS bottom-gap is resolved.
-function DebugSafeArea() {
-  const [info, setInfo] = useState("measuring…");
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      const probe = document.createElement("div");
-      probe.style.position = "fixed";
-      probe.style.visibility = "hidden";
-      probe.style.paddingBottom = "env(safe-area-inset-bottom)";
-      document.body.appendChild(probe);
-      const envBottom = getComputedStyle(probe).paddingBottom;
-      probe.remove();
-
-      const nav = document.querySelector('nav[aria-label="Primary"]');
-      const navBottom = nav ? nav.getBoundingClientRect().bottom : -1;
-      const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-      const standalone =
-        (navigator as unknown as { standalone?: boolean }).standalone ||
-        (typeof matchMedia === "function" && matchMedia("(display-mode: standalone)").matches);
-
-      const pill = document.querySelector('nav[aria-label="Primary"] > div');
-      const pillBottom = pill ? pill.getBoundingClientRect().bottom : -1;
-
-      setInfo(
-        [
-          `innerH=${Math.round(window.innerHeight)}`,
-          `screenH=${Math.round(window.screen.height)}`,
-          `env-bottom=${envBottom}`,
-          `navBottom=${Math.round(navBottom)}`,
-          `pillBottom=${Math.round(pillBottom)}`,
-          `gapInnerPill=${Math.round(window.innerHeight - pillBottom)}`,
-          `standalone=${standalone}`,
-          `vp=${meta?.content ?? "MISSING"}`,
-          `dpr=${devicePixelRatio}`,
-        ].join("   ")
-      );
-    });
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-[999] bg-black/85 px-1.5 py-0.5 text-center font-mono text-[9px] leading-tight whitespace-nowrap text-white">
-      {info}
-    </div>
-  );
-}
-
 export function BottomNav() {
   const pathname = usePathname();
   const collapsed = useSyncExternalStore(subscribe, getSnapshot, () => false);
@@ -107,11 +59,16 @@ export function BottomNav() {
 
   return (
     <>
-      <DebugSafeArea />
       {/* Mobile / tablet — floating bottom pill.
-          CLEAN STATE (temp): plain bottom-0 pb-0, no safe-area padding, until
-          the diagnostic overlay has reported the real device numbers. Do NOT
-          change padding/offset without that data. See DebugSafeArea below.
+          MEASURED FACTS (iPhone 17 Pro, installed PWA):
+          - innerHeight == screen.height (956) -> viewport spans the full
+            physical screen, so bottom:0 IS the physical bottom.
+          - env(safe-area-inset-bottom) reports 0px (WebKit PWA bug) -> any
+            env()/safe-area padding is a no-op here and must not be relied on.
+          - Pill bottom measured == innerHeight -> gap is 0, pill is flush.
+          CONCLUSION: keep the pill at plain bottom-0 pb-0. Do NOT add
+          env() padding (inert here; only made the pill float), negative
+          offsets, or JS-measured offsets (all broke on this device).
           Test on BOTH a notched iPhone (installed PWA) and an Android phone
           before committing - see README "Platform UI notes". */}
       <nav
