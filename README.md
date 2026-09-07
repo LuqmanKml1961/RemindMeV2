@@ -79,12 +79,12 @@ So there's a minimal Next.js API + database that stores **only**: your push subs
 
 All in `components/BottomNav.tsx` (mobile block):
 
-- **Bar above the home indicator** → the outer `<nav>` has `padding-bottom: env(safe-area-inset-bottom)` (inline style) kept with `bottom-0 pb-0`. The padding is what lifts the pill above the home indicator; keep it in the nav padding, not a margin/offset.
+- **Bar above the home indicator** → the outer `<nav>` has `bottom-0` and inline `padding-bottom: calc(env(safe-area-inset-bottom) + 12px)`. The `env()` part clears the iOS home pill; the `+ 12px` is the intentional float gap for the capsule. `pb-0` stays in the class as fallback. Keep it padding (never margin/negative offset), and keep the spaces in `calc(env(...) + 12px)` — spacing is required around `+`. On Android/desktop it's simply 12px of float spacing.
 - **Gap between icons and the home indicator** → the inner capsule's `pb-2` (increase if icons get too close to the home indicator, decrease if it looks too tall).
 
 ### How we got here (so you don't undo it)
 
-History: the original used `pb-[env(safe-area-inset-bottom)]` on the outer `<nav>`. Attempts to close the remaining iOS gap by other means failed on iPhone 17 Pro: JS `screen.height − innerHeight` negative offset (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge). Confirmed the deployed HTML already ships `viewport-fit=cover` and `display: standalone`. Conclusion: the correct, stable approach is Apple's padding pattern — `padding-bottom: env(safe-area-inset-bottom)` on the outer nav, `pb-2` inside the capsule. If the bar ever looks wrong again, first re-add the PWA (stale cached HTML) before touching code.
+History: the original used `pb-[env(safe-area-inset-bottom)]` on the outer `<nav>`. Attempts to close the remaining iOS gap by other means failed on iPhone 17 Pro: JS `screen.height − innerHeight` negative offset (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge). Confirmed the deployed HTML already ships `viewport-fit=cover` and `display: standalone`. Conclusion: the stable fix is Apple's padding pattern — outer `<nav>` anchored `bottom-0` with `padding-bottom: calc(env(safe-area-inset-bottom) + 12px)` (safe-area clearance + intentional float gap), `pb-2` inside the capsule. If the bar ever looks wrong again, first re-add the PWA (stale cached HTML) before touching code.
 
 ### Adjusting the bar's vertical position
 

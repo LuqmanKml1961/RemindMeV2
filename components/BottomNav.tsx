@@ -59,28 +59,29 @@ export function BottomNav() {
 
   return (
     <>
-      {/* Mobile / tablet — floating bottom pill that overlaps the system nav bar.
-          IMPORTANT (iOS vs Android positioning) - Apple safe-area pattern:
-          - viewport-fit=cover is required AND must be live in the installed
-            PWA. It is (layout.tsx exports it), BUT iOS caches the old HTML in
-            the installed PWA - if the pill still misbehaves, force-close the
-            app and RE-ADD it to the Home Screen once before changing code.
-          - The outer <nav> is fixed bottom:0 and gets
-            padding-bottom: env(safe-area-inset-bottom). This lifts the
-            floating pill above the iOS home indicator so it never overlaps it
-            (this is the padding-not-margin rule from Apple's docs). On
-            Android/desktop env() is 0 -> padding is 0 -> unchanged.
-          - Do NOT use margin-bottom, a negative bottom offset, or a JS-measured
-            offset (screen.height - innerHeight) - all three failed on iPhone
-            17 Pro (clipped / hidden / gone). Bare -env(...) is invalid CSS and
-            dropped bottom entirely (bar jumped to top).
-          - The capsule's own pb-2 keeps icons off the home indicator; the
-            outer nav padding positions the whole pill above it.
+      {/* Mobile / tablet — floating bottom pill, anchored with bottom-0 and PADDED
+          up above the iOS home indicator (Apple safe-area pattern):
+          - The outer <nav> is fixed bottom-0 (anchored flush to the physical
+            bottom). Its bottom PADDING is calc(env(safe-area-inset-bottom) +
+            12px): the safe-area inset clears the iOS home pill, and the +12px
+            is the intentional float gap so the capsule looks like it hovers.
+          - On Android/desktop env(safe-area-inset-bottom) is 0, so this is
+            just 12px of float spacing - no platform breaks.
+          - Padding (not margin, not a negative/bottom offset) is what pushes
+            the capsule up into the safe zone for a floating capsule design.
+          - CALC VALIDITY: whitespace around + is REQUIRED in calc() - must be
+            "calc(env(safe-area-inset-bottom) + 12px)", never "+12px" without
+            spaces (invalid CSS drops the whole declaration). This is done as
+            an inline style on purpose to avoid Tailwind arbitrary-value
+            parsing of calc(). pb-0 stays in the class as the fallback.
+          - Do NOT reintroduce: negative bottom, JS screen.height-innerHeight
+            (nav vanished / clipped on iPhone 17 Pro), or bare -env(...)
+            (invalid CSS, dropped bottom -> nav jumped to the top).
           - Test on BOTH a notched iPhone (installed PWA) and an Android phone
             before committing - see README "Platform UI notes". */}
       <nav
         aria-label="Primary"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
         className="fixed inset-x-0 bottom-0 z-40 px-2 pb-0 lg:hidden"
       >
         <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-1.5 pb-2 pt-1.5 shadow-lg shadow-black/10">
