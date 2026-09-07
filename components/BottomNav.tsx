@@ -66,7 +66,7 @@ export function BottomNav() {
           (globals.css), making the bar read as reaching the physical bottom. */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 border-t bg-card px-2 pt-1.5 pb-2 lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t bg-card px-2 pt-[7px] pb-2 lg:hidden"
       >
         <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1">
           {ITEMS.map((item) => {
