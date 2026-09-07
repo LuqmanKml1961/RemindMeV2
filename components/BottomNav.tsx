@@ -60,25 +60,27 @@ export function BottomNav() {
   return (
     <>
       {/* Mobile / tablet — floating bottom pill that overlaps the system nav bar.
-          IMPORTANT (iOS vs Android positioning):
-          - The pill sits at bottom:0, flush to the bottom of the RENDERABLE
-            viewport. That is the lowest point web content can reach.
-          - iOS installed-PWA reality (verified on iPhone 17 Pro): the area
-            below the content viewport edge is NOT renderable. Any negative
-            bottom offset (calc(-1 * env(safe-area-inset-bottom))) pushes the
-            bar below the viewport edge and it gets CLIPPED there — the bar
-            came back half-hidden/cut off. Do NOT add a negative bottom offset.
-          - The space under the pill on iOS is the home-indicator zone. It is a
-            system area, not a layout bug. Keep the bar at bottom:0 so it is
-            always fully visible and flush on Android/desktop.
-          - Do NOT use a JS-measured offset (screen.height - innerHeight) —
-            unbounded, hid the whole nav. Do NOT use bare -env(...) — invalid
-            CSS, dropped the declaration, sent the bar to the top.
-          - The capsule's own pb-2 keeps icons off the home indicator.
+          IMPORTANT (iOS vs Android positioning) - Apple safe-area pattern:
+          - viewport-fit=cover is required AND must be live in the installed
+            PWA. It is (layout.tsx exports it), BUT iOS caches the old HTML in
+            the installed PWA - if the pill still misbehaves, force-close the
+            app and RE-ADD it to the Home Screen once before changing code.
+          - The outer <nav> is fixed bottom:0 and gets
+            padding-bottom: env(safe-area-inset-bottom). This lifts the
+            floating pill above the iOS home indicator so it never overlaps it
+            (this is the padding-not-margin rule from Apple's docs). On
+            Android/desktop env() is 0 -> padding is 0 -> unchanged.
+          - Do NOT use margin-bottom, a negative bottom offset, or a JS-measured
+            offset (screen.height - innerHeight) - all three failed on iPhone
+            17 Pro (clipped / hidden / gone). Bare -env(...) is invalid CSS and
+            dropped bottom entirely (bar jumped to top).
+          - The capsule's own pb-2 keeps icons off the home indicator; the
+            outer nav padding positions the whole pill above it.
           - Test on BOTH a notched iPhone (installed PWA) and an Android phone
             before committing - see README "Platform UI notes". */}
       <nav
         aria-label="Primary"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         className="fixed inset-x-0 bottom-0 z-40 px-2 pb-0 lg:hidden"
       >
         <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-1.5 pb-2 pt-1.5 shadow-lg shadow-black/10">

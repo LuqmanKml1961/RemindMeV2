@@ -69,23 +69,22 @@ So there's a minimal Next.js API + database that stores **only**: your push subs
 
 ### Top takeaways
 
-1. **`bottom: 0` is the lowest point web content can render on your iPhone — period.** Verified on iPhone 17 Pro: any **negative** bottom offset (`calc(-1 * env(safe-area-inset-bottom))`) pushes the bar below the content-viewport edge, where iOS **clips it** — the bar came back half-hidden/cut off. The gap that remains under the pill at `bottom: 0` is the **iOS home-indicator zone, a system area web content cannot paint into**. It is not a layout bug.
-2. **Keep the outer `<nav>` at plain `bottom-0 pb-0`.** This renders the bar fully visible and flush on Android/desktop. On iOS the home-indicator zone shows under the pill — accepted, irreducible there.
-3. **Do NOT use a JS-measured negative offset** (`screen.height − innerHeight`) — unbounded, it hid the whole nav on iPhone 17 Pro.
-4. **Do NOT use a bare `-env(...)`** — invalid CSS, drops the whole `bottom` declaration (`bottom` → `auto`), and the fixed nav jumps to the top of the page under the notch.
-5. **Icon clearance from the home indicator lives in the capsule.** The inner pill grid keeps its own bottom padding (`pb-2`), so icons never sit under the home indicator.
-6. **Test on BOTH platforms after any change.** Minimum matrix: a notched iPhone (X/11/12/13/14/15/16/17) opened as an **installed Home Screen app**, and an Android phone in Chrome. If the nav is missing, too-high (top of page), or cut off, one of the three failures above was reintroduced.
+1. **Apple's safe-area pattern (padding, not negative offsets) is the fix.** `viewport-fit=cover` in the viewport meta + `display: standalone` in the manifest + `padding-bottom: env(safe-area-inset-bottom)` on the bottom nav's outer `<nav>`. This lifts the floating pill **above** the iOS home indicator so the two never overlap. On Android/desktop `env()` is `0`, so padding is `0` and nothing changes.
+2. **The PWA must be running fresh HTML.** iOS caches the installed app's HTML. If the pill still overlaps/misbehaves, **force-close the app and re-add it to the Home Screen once** before changing any code — a stale install can be running pre-`viewport-fit=cover` markup, which makes all `env()` behavior wrong.
+3. **Do NOT use margin-bottom, negative `bottom`, or JS-measured offsets.** Three separate attempts each failed on iPhone 17 Pro: `screen.height − innerHeight` (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to the top), and inline `calc(-1 * env(safe-area-inset-bottom))` (bar clipped at the viewport edge). The padding pattern is the one that places the bar correctly.
+4. **The capsule's own `pb-2`** keeps icons off the home indicator, on top of the outer-nav safe-area padding.
+5. **Test on BOTH platforms after any change.** Minimum matrix: a notched iPhone (X/11/12/13/14/15/16/17) opened as an **installed Home Screen app**, and an Android phone in Chrome.
 
 ### Adjusting the bar's vertical position
 
 All in `components/BottomNav.tsx` (mobile block):
 
-- **Bar reaching the renderable bottom** → the outer `<nav>`: plain `bottom-0 pb-0`. Do **not** add any negative bottom offset, JS-measured or `env()`-based — the iOS home-indicator zone below is not renderable and the bar gets clipped.
+- **Bar above the home indicator** → the outer `<nav>` has `padding-bottom: env(safe-area-inset-bottom)` (inline style) kept with `bottom-0 pb-0`. The padding is what lifts the pill above the home indicator; keep it in the nav padding, not a margin/offset.
 - **Gap between icons and the home indicator** → the inner capsule's `pb-2` (increase if icons get too close to the home indicator, decrease if it looks too tall).
 
 ### How we got here (so you don't undo it)
 
-History: the original used `pb-[env(safe-area-inset-bottom)]` on the outer `<nav>` (pill floated high). `pb-0` was the fix. Attempts to additionally close the iOS home-indicator zone gap: JS `screen.height − innerHeight` negative offset (nav disappeared), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (nav clipped/cut off — the zone below the viewport edge is not renderable). Conclusion: the gap under the pill on iOS is the unrenderable home-indicator zone; `bottom: 0` is the correct, stable state. Keep padding-based clearance inside the capsule, not on the outer nav.
+History: the original used `pb-[env(safe-area-inset-bottom)]` on the outer `<nav>`. Attempts to close the remaining iOS gap by other means failed on iPhone 17 Pro: JS `screen.height − innerHeight` negative offset (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge). Confirmed the deployed HTML already ships `viewport-fit=cover` and `display: standalone`. Conclusion: the correct, stable approach is Apple's padding pattern — `padding-bottom: env(safe-area-inset-bottom)` on the outer nav, `pb-2` inside the capsule. If the bar ever looks wrong again, first re-add the PWA (stale cached HTML) before touching code.
 
 ### Adjusting the bar's vertical position
 
