@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, useEffect, useState } from "react";
 import { Home, ListChecks, Vault, Settings, BellRing, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +49,54 @@ function isActive(href: string, pathname: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
+// TEMPORARY diagnostic overlay — remove once the iOS bottom-gap is resolved.
+function DebugSafeArea() {
+  const [info, setInfo] = useState("measuring…");
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      const probe = document.createElement("div");
+      probe.style.position = "fixed";
+      probe.style.visibility = "hidden";
+      probe.style.paddingBottom = "env(safe-area-inset-bottom)";
+      document.body.appendChild(probe);
+      const envBottom = getComputedStyle(probe).paddingBottom;
+      probe.remove();
+
+      const nav = document.querySelector('nav[aria-label="Primary"]');
+      const navBottom = nav ? nav.getBoundingClientRect().bottom : -1;
+      const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+      const standalone =
+        (navigator as unknown as { standalone?: boolean }).standalone ||
+        (typeof matchMedia === "function" && matchMedia("(display-mode: standalone)").matches);
+
+      const pill = document.querySelector('nav[aria-label="Primary"] > div');
+      const pillBottom = pill ? pill.getBoundingClientRect().bottom : -1;
+
+      setInfo(
+        [
+          `innerH=${Math.round(window.innerHeight)}`,
+          `screenH=${Math.round(window.screen.height)}`,
+          `env-bottom=${envBottom}`,
+          `navBottom=${Math.round(navBottom)}`,
+          `pillBottom=${Math.round(pillBottom)}`,
+          `gapInnerPill=${Math.round(window.innerHeight - pillBottom)}`,
+          `standalone=${standalone}`,
+          `vp=${meta?.content ?? "MISSING"}`,
+          `dpr=${devicePixelRatio}`,
+        ].join("   ")
+      );
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[999] bg-black/85 px-1.5 py-0.5 text-center font-mono text-[9px] leading-tight whitespace-nowrap text-white">
+      {info}
+    </div>
+  );
+}
+
 export function BottomNav() {
   const pathname = usePathname();
   const collapsed = useSyncExternalStore(subscribe, getSnapshot, () => false);
@@ -59,29 +107,15 @@ export function BottomNav() {
 
   return (
     <>
-      {/* Mobile / tablet — floating bottom pill, anchored with bottom-0 and PADDED
-          up above the iOS home indicator (Apple safe-area pattern):
-          - The outer <nav> is fixed bottom-0 (anchored flush to the physical
-            bottom). Its bottom PADDING is calc(env(safe-area-inset-bottom) +
-            12px): the safe-area inset clears the iOS home pill, and the +12px
-            is the intentional float gap so the capsule looks like it hovers.
-          - On Android/desktop env(safe-area-inset-bottom) is 0, so this is
-            just 12px of float spacing - no platform breaks.
-          - Padding (not margin, not a negative/bottom offset) is what pushes
-            the capsule up into the safe zone for a floating capsule design.
-          - CALC VALIDITY: whitespace around + is REQUIRED in calc() - must be
-            "calc(env(safe-area-inset-bottom) + 12px)", never "+12px" without
-            spaces (invalid CSS drops the whole declaration). This is done as
-            an inline style on purpose to avoid Tailwind arbitrary-value
-            parsing of calc(). pb-0 stays in the class as the fallback.
-          - Do NOT reintroduce: negative bottom, JS screen.height-innerHeight
-            (nav vanished / clipped on iPhone 17 Pro), or bare -env(...)
-            (invalid CSS, dropped bottom -> nav jumped to the top).
-          - Test on BOTH a notched iPhone (installed PWA) and an Android phone
-            before committing - see README "Platform UI notes". */}
+      <DebugSafeArea />
+      {/* Mobile / tablet — floating bottom pill.
+          CLEAN STATE (temp): plain bottom-0 pb-0, no safe-area padding, until
+          the diagnostic overlay has reported the real device numbers. Do NOT
+          change padding/offset without that data. See DebugSafeArea below.
+          Test on BOTH a notched iPhone (installed PWA) and an Android phone
+          before committing - see README "Platform UI notes". */}
       <nav
         aria-label="Primary"
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
         className="fixed inset-x-0 bottom-0 z-40 px-2 pb-0 lg:hidden"
       >
         <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-1.5 pb-2 pt-1.5 shadow-lg shadow-black/10">
