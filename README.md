@@ -69,22 +69,22 @@ So there's a minimal Next.js API + database that stores **only**: your push subs
 
 ### Top takeaways
 
-1. **Measured on the target device (iPhone 17 Pro, installed PWA): `env(safe-area-inset-bottom)` reports `0px`** — the known WebKit standalone bug. Any `viewport-fit=cover` + `env()` padding approach is a **no-op** here: `bottom-0` already IS the physical bottom, because the viewport spans the full screen (`innerHeight == screen.height`). No CSS safe-area technique can change this device's behavior.
-2. **The pill's bottom edge == `innerHeight` == `screen.height` (`956`), so the gap is `0`.** Plain `bottom-0 pb-0` is the correct, grounded end state. The one previous "floating on empty space" report was an added `+12px` padding lifting the pill off the bottom.
-3. **Do NOT add safe-area padding, negative `bottom`, or JS-measured offsets.** All were tried: JS `screen.height − innerHeight` (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge), `env()+12px` padding (pill floated). None work because `env()` is 0.
-4. **The capsule's own `pb-2`** keeps tab content a small step off the very bottom.
+1. **Measured on a real iPhone 17 (installed PWA): `innerHeight` (812) = `screen.height` (874) minus the top inset (~28px) minus `env(safe-area-inset-bottom)` (34px).** So the layout viewport ends exactly at the top of the iOS home-indicator zone, and the pill is flush with the bottom of the renderable viewport (`pillBottom == innerHeight`). `env-bottom=34px` proves `viewport-fit=cover` is active and `env()` works.
+2. **The strip of "empty space" under the pill is the 34px iOS home-indicator zone — system UI.** Web content cannot render inside it: negative `bottom` offsets clip there ("cut off clean" on device), JS offsets can hide the bar entirely, and `env()` *padding* lifts the pill up (the "floating" look). A floating capsule sits above the home pill by design; this is the standard, correct iOS appearance and cannot be eliminated with CSS.
+3. **Do NOT fix with device emulators.** Edge DevTools emulation reported `env()=0` and `innerHeight==screen.height`, which contradicted the real device and sent us in circles. Trust only installed-PWA measurements from a real phone.
+4. **The only way to read as "filled to the bottom" is a full-width bar** whose background extends behind the home indicator — at the cost of the floating-capsule design.
 5. **Test on BOTH platforms after any change.** Minimum matrix: a notched iPhone (X/11/12/13/14/15/16/17) opened as an **installed Home Screen app**, and an Android phone in Chrome.
 
 ### Adjusting the bar's vertical position
 
 All in `components/BottomNav.tsx` (mobile block):
 
-- **Bar vertical position** → the outer `<nav>`: plain `bottom-0 pb-0`. That is flush to the physical bottom because `env()` is 0 on this device; changing padding/offset will float, clip, or hide the bar (all failures above).
-- **Gap above the very bottom edge** → the inner capsule's `pb-2` (increase if tab content sits too low, decrease if it looks too tall).
+- **Bar vertical position** → the outer `<nav>`: plain `bottom-0 pb-0` = flush with the renderable viewport bottom. The space below is the unrenderable home-indicator zone; padding/offsets will float, clip, or hide the bar (all tried).
+- **Gap above the home-indicator zone** → the inner capsule's `pb-2` (increase if capsule sits too low against the zone, decrease if it looks too tall).
 
 ### How we got here (so you don't undo it)
 
-History: the original used `pb-[env(safe-area-inset-bottom)]`. Attempts to change the iOS position failed on iPhone 17 Pro: JS `screen.height − innerHeight` negative offset (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge), `env()+12px` padding (pill floated in empty space). An on-device diagnostic proved `env(safe-area-inset-bottom) = 0` and `pillBottom = innerHeight = screen.height`, i.e. the pill was already flush. Conclusion: `bottom-0 pb-0` is the data-backed correct state; the iOS home-indicator zone cannot and need not be compensated because the viewport already spans the full screen.
+History: the original used `pb-[env(safe-area-inset-bottom)]`. Attempts to change the iOS position failed on a real iPhone 17: JS `screen.height − innerHeight` negative offset (nav vanished), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (bar clipped at the viewport edge), `env()+12px` padding (pill floated in empty space). On-device diagnostics: Edge DevTools said `env()=0`, `innerH=screenH` (misleading); a real iPhone 17 said `innerH=812`, `screenH=874`, `env-bottom=34px`, `pillBottom=innerH`. Conclusion: the pill is already flush with the renderable viewport bottom, and the 34px below is the iOS home-indicator zone (unrenderable system UI). `bottom-0 pb-0` is the data-backed correct state for a floating capsule.
 
 ### Adjusting the bar's vertical position
 

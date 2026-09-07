@@ -60,17 +60,23 @@ export function BottomNav() {
   return (
     <>
       {/* Mobile / tablet — floating bottom pill.
-          MEASURED FACTS (iPhone 17 Pro, installed PWA):
-          - innerHeight == screen.height (956) -> viewport spans the full
-            physical screen, so bottom:0 IS the physical bottom.
-          - env(safe-area-inset-bottom) reports 0px (WebKit PWA bug) -> any
-            env()/safe-area padding is a no-op here and must not be relied on.
-          - Pill bottom measured == innerHeight -> gap is 0, pill is flush.
-          CONCLUSION: keep the pill at plain bottom-0 pb-0. Do NOT add
-          env() padding (inert here; only made the pill float), negative
-          offsets, or JS-measured offsets (all broke on this device).
-          Test on BOTH a notched iPhone (installed PWA) and an Android phone
-          before committing - see README "Platform UI notes". */}
+          MEASURED FACTS (real iPhone 17, installed PWA):
+          - innerH (812) = screenH (874) - ~28px top inset - env-bottom (34px).
+            The layout viewport therefore ends exactly at the TOP of the iOS
+            home-indicator zone, and pillBottom == innerH -> the pill is flush
+            with the bottom of the renderable viewport.
+          - The strip of "empty space" under the pill is the 34px home-indicator
+            zone (env-bottom = 34px). It is SYSTEM UI: web content cannot
+            render in it (negative offsets clip there - "cut off clean"), and
+            every notched iPhone has it. A floating capsule sits above it by
+            design; this is the standard, correct iOS look.
+          - env() padding lifts the pill FURTHER above the zone (floating look),
+            negative offsets get clipped, JS offsets hid the whole bar once.
+            Keep plain bottom-0 pb-0.
+          - Only a full-width bar whose background fills the bottom applies
+            visually "to the bottom" - at the cost of this floating design.
+          - Test on BOTH a notched iPhone (installed PWA) and an Android phone
+            before committing - see README "Platform UI notes". */}
       <nav
         aria-label="Primary"
         className="fixed inset-x-0 bottom-0 z-40 px-2 pb-0 lg:hidden"
