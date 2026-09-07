@@ -69,18 +69,29 @@ So there's a minimal Next.js API + database that stores **only**: your push subs
 
 ### Top takeaways
 
-1. **`env(safe-area-inset-bottom)` is unreliable on iOS standalone PWAs for PADDING, but is the RIGHT offset to close the gap.** In an installed Home Screen app on a notched iPhone, WebKit can anchor `fixed bottom: 0` above the physical screen bottom, leaving a visible gap. We close it with `bottom: calc(-1 * env(safe-area-inset-bottom))` (inline style on the outer `<nav>`).
-2. **You MUST write `calc(-1 * env(...))`, never `-env(...)`.** A bare `-env(...)` is *invalid CSS* — it drops the entire `bottom` declaration, `bottom` reverts to `auto`, and a `fixed` element then renders at its static position (top of the page). That exact bug shipped and put the nav under the notch on an iPhone 17 Pro. The `bottom-0` class stays as a fallback so a dropped inline style can never hide the bar.
-3. **Do NOT use a JS-measured negative offset** like `screen.height − innerHeight`. That produces a large, unbounded value that pushed the entire `<nav>` off-screen — the bar disappeared completely on iPhone 17 Pro.
-4. **The `calc(-1 * env())` offset is harmless everywhere it can't help.** On Android/desktop `env(safe-area-inset-bottom)` is `0`, so it evaluates to `bottom: 0`. On iOS it equals the real inset, closing the gap. It can never grow large enough to hide the bar.
+1. **`bottom: 0` is the lowest point web content can render on your iPhone — period.** Verified on iPhone 17 Pro: any **negative** bottom offset (`calc(-1 * env(safe-area-inset-bottom))`) pushes the bar below the content-viewport edge, where iOS **clips it** — the bar came back half-hidden/cut off. The gap that remains under the pill at `bottom: 0` is the **iOS home-indicator zone, a system area web content cannot paint into**. It is not a layout bug.
+2. **Keep the outer `<nav>` at plain `bottom-0 pb-0`.** This renders the bar fully visible and flush on Android/desktop. On iOS the home-indicator zone shows under the pill — accepted, irreducible there.
+3. **Do NOT use a JS-measured negative offset** (`screen.height − innerHeight`) — unbounded, it hid the whole nav on iPhone 17 Pro.
+4. **Do NOT use a bare `-env(...)`** — invalid CSS, drops the whole `bottom` declaration (`bottom` → `auto`), and the fixed nav jumps to the top of the page under the notch.
 5. **Icon clearance from the home indicator lives in the capsule.** The inner pill grid keeps its own bottom padding (`pb-2`), so icons never sit under the home indicator.
-6. **Test on BOTH platforms after any change.** Minimum matrix: a notched iPhone (X/11/12/13/14/15/16/17) opened as an **installed Home Screen app**, and an Android phone in Chrome. If the nav is missing entirely, a negative-bottom offset bigger than the safe-area inset is the cause; if it's at the TOP of the page, an invalid `-env(...)` dropped the declaration.
+6. **Test on BOTH platforms after any change.** Minimum matrix: a notched iPhone (X/11/12/13/14/15/16/17) opened as an **installed Home Screen app**, and an Android phone in Chrome. If the nav is missing, too-high (top of page), or cut off, one of the three failures above was reintroduced.
 
 ### Adjusting the bar's vertical position
 
 All in `components/BottomNav.tsx` (mobile block):
 
-- **Bar reaching the physical bottom** → the outer `<nav>` uses the inline style `bottom: calc(-1 * env(safe-area-inset-bottom))` (with `bottom-0` as the CSS fallback). Keep it as `calc(-1 * env(...))`, never a JS-measured or hard-coded constant (that's what hid the bar), and never a bare `-env(...)` (invalid CSS — sent the bar to the top of the page).
+- **Bar reaching the renderable bottom** → the outer `<nav>`: plain `bottom-0 pb-0`. Do **not** add any negative bottom offset, JS-measured or `env()`-based — the iOS home-indicator zone below is not renderable and the bar gets clipped.
+- **Gap between icons and the home indicator** → the inner capsule's `pb-2` (increase if icons get too close to the home indicator, decrease if it looks too tall).
+
+### How we got here (so you don't undo it)
+
+History: the original used `pb-[env(safe-area-inset-bottom)]` on the outer `<nav>` (pill floated high). `pb-0` was the fix. Attempts to additionally close the iOS home-indicator zone gap: JS `screen.height − innerHeight` negative offset (nav disappeared), Tailwind `bottom-[-env(...)]` (invalid CSS → nav jumped to top), inline `calc(-1 * env(...))` (nav clipped/cut off — the zone below the viewport edge is not renderable). Conclusion: the gap under the pill on iOS is the unrenderable home-indicator zone; `bottom: 0` is the correct, stable state. Keep padding-based clearance inside the capsule, not on the outer nav.
+
+### Adjusting the bar's vertical position
+
+All in `components/BottomNav.tsx` (mobile block):
+
+- **Bar reaching the renderable bottom** → the outer `<nav>`: plain `bottom-0 pb-0` (the `calc(-1 * env(...))` attempt was clipped by iOS and reverted — see history below). Do **not** add a negative bottom offset, JS-measured or `env()`-based.
 - **Gap between icons and the home indicator** → the inner capsule's `pb-2` (increase if icons get too close to the home indicator, decrease if it looks too tall).
 
 ### How we got here (so you don't undo it)
