@@ -38,6 +38,7 @@ Newest first. This log covers notable feature, UX, and PWA changes; see git hist
 
 - [Why there's a tiny backend](#why-theres-a-tiny-backend)
 - [How it all fits together](#how-it-all-fits-together)
+- [Platform UI notes (iOS vs Android)](#platform-ui-notes-ios-vs-android)
 - [Codebase guide](#codebase-guide)
 - [Local development](#local-development)
 - [Deploying - full walkthrough](#deploying--full-walkthrough)
@@ -59,6 +60,30 @@ So there's a minimal Next.js API + database that stores **only**: your push subs
 - **Android (Chrome)**: works after closing the app/tab; the browser's push service wakes the service worker in the background.
 - **iOS (Safari, 16.4+)**: you must **Add to Home Screen** first and open the app from there - regular Safari tabs cannot receive push. Once installed, grant notification permission from inside the app (Settings → Enable Notifications).
 - **Windows/desktop**: works while Chrome is allowed to run in the background. Check Chrome's `chrome://settings/system` → **"Continue running background apps when Google Chrome is closed"** is on, otherwise a fully-quit browser can't receive push.
+
+---
+
+## Platform UI notes (iOS vs Android)
+
+> Read this before touching the **bottom navigation bar** (`components/BottomNav.tsx`) or anything position/safe-area related. The layout is deliberately tuned so it looks correct on **both** a notched iPhone (installed PWA) and an Android phone — naive fixes tend to break one platform trying to fix the other.
+
+### Top takeaways
+
+1. **`env(safe-area-inset-bottom)` is unreliable on iOS standalone PWAs.** In an installed Home Screen app on a notched iPhone, WebKit anchors `fixed bottom: 0` to the *content viewport* rather than the physical screen bottom, **and** `env(safe-area-inset-bottom)` can report `0`. Net effect: a `fixed bottom-0` pill floats above the home indicator with a visible gap under it — even with `pb-0`.
+2. **The floating gap is compensated at runtime, not with CSS.** `lib/useSafeBottom.ts` measures the omitted bottom inset (physical `screen.height` − content `innerHeight`) and returns it; `BottomNav.tsx` applies it as a negative `bottom` offset so the bar reaches the physical edge on iOS. On Android/desktop (no bug) it returns `0`, leaving them at pure `bottom-0`.
+3. **Icon clearance from the home indicator lives in the capsule.** The inner pill grid keeps its own bottom padding (`pb-2`), so icons never sit under the home indicator even though the outer nav is pushed flush to the physical edge.
+4. **Test on BOTH platforms after any change.** Minimum matrix: a notched iPhone (X/11/12/13/14/15/16) opened as an **installed Home Screen app**, and an Android phone in Chrome.
+
+### Adjusting the bar's vertical position
+
+All in `components/BottomNav.tsx` (mobile block):
+
+- **Bar reaching the physical bottom** → the outer `<nav>`: `bottom-0` plus `style={{ bottom: -bottomInset }}` from `useSafeBottom()` (iOS-only). Don't hard-code a CSS offset here — it would break the other platform. The offset is the *measured* inset, not a guessed constant.
+- **Gap between icons and the home indicator** → the inner capsule's `pb-2` (increase if icons get too close to the home indicator, decrease if it looks too tall).
+
+### How we got here (so you don't undo it)
+
+History: the original used `pb-[env(safe-area-inset-bottom)]` on the outer `<nav>`, which made the pill float up ~34px on iOS. Simple `pb-0` didn't fix it either, because the fixed coordinate system itself is inset in iOS standalone. A JS measurement hook (`screen.height − innerHeight`) is what finally closes the gap on iOS without affecting Android. Keep that hook and its negative-bottom application; replacing it with a CSS-only constant will regress one of the platforms.
 
 ---
 
@@ -169,11 +194,12 @@ Pages read data reactively via `dexie-react-hooks`' `useLiveQuery` - the UI upda
 
 Wraps every push API route handler in a try/catch that logs server-side and returns `{ error: message }` as JSON instead of letting an unhandled exception produce Next.js's default **empty 500 response with no body** - which is nearly impossible to debug against a deployed app with no direct log access. This one change is what turned "the deploy is broken, no idea why" into an immediately readable error message during setup.
 
-### `lib/uuid.ts` and `lib/clipboard.ts`
+### `lib/uuid.ts`, `lib/clipboard.ts`, and `lib/useSafeBottom.ts`
 
 Small platform-compatibility shims:
 - `uuid()` falls back from `crypto.randomUUID()` (which only exists in secure contexts - HTTPS or `localhost`) to `crypto.getRandomValues()`-based generation, so the app still works when opened over a plain-HTTP LAN address during local device testing.
 - `copyToClipboard()` falls back from `navigator.clipboard.writeText()` (same secure-context restriction) to the classic `document.execCommand('copy')` technique.
+- `useSafeBottom()` compensates the iOS standalone-PWA bottom inset that WebKit omits (see [Platform UI notes](#platform-ui-notes-ios-vs-android)). iOS-only; returns `0` elsewhere.
 
 Neither matters once deployed (Vercel is always HTTPS), but both were needed to test on a phone over the local network during development.
 

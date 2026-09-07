@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
+import { useSafeBottom } from "@/lib/useSafeBottom";
 import { Home, ListChecks, Vault, Settings, BellRing, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ function isActive(href: string, pathname: string) {
 export function BottomNav() {
   const pathname = usePathname();
   const collapsed = useSyncExternalStore(subscribe, getSnapshot, () => false);
+  const bottomInset = useSafeBottom();
 
   if (pathname.startsWith("/onboarding") || pathname.startsWith("/import")) return null;
 
@@ -61,18 +63,24 @@ export function BottomNav() {
     <>
       {/* Mobile / tablet — floating bottom pill that overlaps the system nav bar.
           IMPORTANT (iOS vs Android positioning):
-          - pb is intentionally NOT env(safe-area-inset-bottom) here. In an
-            installed iOS PWA, WebKit can report env(safe-area-inset-bottom)
-            while ALSO inset-reducing the fixed coordinate system, which made
-            the pill literally float above the home indicator with a visible
-            gap. Setting a plain pb (or pb-0 below) keeps the bar flush to the
-            physical screen bottom and looks correct on both iOS and Android.
+          - On an installed iOS PWA, WebKit anchors `bottom: 0` to the content
+            viewport, not the physical screen bottom, and reports
+            env(safe-area-inset-bottom) as 0 - so the pill floats above the
+            home indicator with a visible gap. The useSafeBottom() hook
+            measures the real omitted inset and applies a negative `bottom`
+            offset here to push the bar down to the physical edge.
+          - Android/desktop don't have the bug - useSafeBottom() returns 0
+            there and the inline style is untouched (pure bottom-0).
           - The capsule keeps its own inner bottom padding (pb-2 on the inner
-            grid) so icons never sit under the iOS home indicator, while the
-            outer <nav> stays flush to the edge.
-          - If you ever change this, test on BOTH a notched iPhone i6+ and an
-            Android phone before committing - see README "Platform UI notes". */}
-      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 px-2 pb-0 lg:hidden">
+            grid) so icons never sit under the iOS home indicator.
+          - If you ever change this, test on BOTH a notched iPhone (installed
+            PWA) and an Android phone before committing - see README
+            "Platform UI notes". */}
+      <nav
+        aria-label="Primary"
+        style={bottomInset > 0 ? { bottom: -bottomInset } : undefined}
+        className="fixed inset-x-0 bottom-0 z-40 px-2 pb-0 lg:hidden"
+      >
         <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-1.5 pb-2 pt-1.5 shadow-lg shadow-black/10">
           {ITEMS.map((item) => {
             const active = isActive(item.href, pathname);
