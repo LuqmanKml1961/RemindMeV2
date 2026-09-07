@@ -61,20 +61,25 @@ export function BottomNav() {
     <>
       {/* Mobile / tablet — floating bottom pill that overlaps the system nav bar.
           IMPORTANT (iOS vs Android positioning):
-          - On an installed iOS PWA, WebKit anchors `bottom: 0` to the content
-            viewport, not the physical screen bottom, and reports
-            env(safe-area-inset-bottom) as 0 — so the pill floats above the
-            home indicator with a visible gap. This is a known WebKit bug
-            (useSafeBottom approach was tried and removed — it caused the nav
-            to disappear on iPhone 17 Pro).
-          - The capsule keeps its own inner bottom padding (pb-2 on the inner
-            grid) so icons never sit under the iOS home indicator.
+          - The pill sits at bottom:0, flush to the fixed viewport's bottom edge.
+          - iOS installed-PWA quirk: WebKit can anchor `fixed bottom: 0` to the
+            content viewport rather than the physical screen, leaving a visible
+            gap under the pill. We compensate with a NEGATIVE env() bottom
+            offset below (bottom: -env(safe-area-inset-bottom)). This is SAFE:
+            env() is bounded by the real safe-area inset (never big enough to
+            hide the bar) and is 0 on Android/desktop, so it never affects them.
+            Do NOT replace this with a JS-measured offset such as
+            screen.height - innerHeight — that produced a huge unbounded value
+            and hid the whole nav on iPhone 17 Pro (see README "Platform UI
+            notes").
+          - The capsule keeps its own inner bottom padding (pb-2) so icons
+            never sit under the iOS home indicator.
           - If you ever change this, test on BOTH a notched iPhone (installed
             PWA) and an Android phone before committing - see README
             "Platform UI notes". */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 px-2 pb-0 lg:hidden"
+        className="fixed inset-x-0 bottom-[-env(safe-area-inset-bottom)] z-40 px-2 pb-0 lg:hidden"
       >
         <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1 rounded-2xl border bg-card px-1.5 pb-2 pt-1.5 shadow-lg shadow-black/10">
           {ITEMS.map((item) => {
