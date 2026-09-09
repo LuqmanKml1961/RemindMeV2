@@ -12,6 +12,14 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
 
+### 2026-09-09 — Bottom nav fixes for iOS and Android (`6854301`, `913003b`, `be009d3`, merged into `main`)
+
+> Fixes two platform-specific bottom-bar issues (pushed commits on `main`; the earlier ones in this list came from the `improve/pwa-perfection` branch).
+
+- **iOS — bottom navigation bar**: the bar is now a floating rounded "pill" (`inset-x-4`, rounded-2xl, `bg-card/95` + `backdrop-blur`, `shadow-xl`) positioned with `env(safe-area-inset-bottom)` clearance, so it sits above the home-indicator gesture area and reads correctly on a notched iPhone (installed PWA) instead of colliding with the bottom edge.
+- **Android — gap between the bar and the bottom**: the pill now uses `bottom-[max(calc(env(safe-area-inset-bottom)+12px),24px)]`, guaranteeing at least a 24px gap on Android (where `safe-area-inset-bottom` is 0), so the bar is no longer flush against the screen bottom.
+- **Gesture area blending**: the app background moved from `<main>` onto `<body>` (`be009d3`), so the area below the bar / around gestures blends seamlessly into the page background.
+
 ### 2026-09-03 — Motion & high-refresh polish (`improve/pwa-perfection`)
 
 > Shipped on the `improve/pwa-perfection` branch (commit `48a769a`), **not yet merged into `main`**.
