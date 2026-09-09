@@ -3,6 +3,7 @@
 import { format } from "date-fns";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import type { Reminder } from "../lib/domain/types";
 import { deleteReminder, setCompleted } from "../lib/db/reminders";
 import { recurrenceLabel } from "../lib/domain/recurrence";
@@ -39,6 +40,24 @@ export function ReminderCard({ reminder }: { reminder: Reminder }) {
   const [shareOpen, setShareOpen] = useState(false);
   const now = useNow(30000);
   const overdue = reminder.dueDate && !reminder.isCompleted && new Date(reminder.dueDate).getTime() < now;
+
+  async function handleToggleCompleted(checked: boolean) {
+    try {
+      await setCompleted(reminder, checked);
+    } catch (err) {
+      console.error("Failed to update reminder", err);
+      toast.error("Couldn't update the reminder. Please try again.");
+    }
+  }
+
+  async function handleDelete() {
+    try {
+      await deleteReminder(reminder.id);
+    } catch (err) {
+      console.error("Failed to delete reminder", err);
+      toast.error("Couldn't delete the reminder. Please try again.");
+    }
+  }
 
   return (
     <Card
@@ -91,7 +110,7 @@ export function ReminderCard({ reminder }: { reminder: Reminder }) {
 
         <Checkbox
           checked={reminder.isCompleted}
-          onCheckedChange={(c) => setCompleted(reminder, c === true)}
+          onCheckedChange={(c) => handleToggleCompleted(c === true)}
           className="mt-1 shrink-0"
           aria-label="Mark completed"
         />
@@ -104,7 +123,7 @@ export function ReminderCard({ reminder }: { reminder: Reminder }) {
         <Button variant="outline" size="sm" className="flex-1" onClick={() => setShareOpen(true)}>
           <Share /> Share
         </Button>
-        <Button variant="ghost" size="sm" className="flex-1 text-destructive" onClick={() => deleteReminder(reminder.id)}>
+        <Button variant="ghost" size="sm" className="flex-1 text-destructive" onClick={handleDelete}>
           <Trash2 /> Delete
         </Button>
       </div>

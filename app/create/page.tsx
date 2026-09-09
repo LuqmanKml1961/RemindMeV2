@@ -1,8 +1,9 @@
 "use client";
 
-import { addMinutes, format } from "date-fns";
+import { addMinutes } from "date-fns";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
@@ -16,6 +17,7 @@ import { db, newId } from "../../lib/db/dexie";
 import { createReminder, updateReminder } from "../../lib/db/reminders";
 import { createTodo } from "../../lib/db/todos";
 import { getPreferences } from "../../lib/db/preferences";
+import { toLocalInputValue } from "../../lib/utils";
 import { RECURRENCE_OPTIONS } from "../../lib/domain/recurrence";
 import type { Medication, Reminder, ReminderType, RecurrenceRule } from "../../lib/domain/types";
 import { Pill, Plus, Trash2, Save, X, Wallet } from "lucide-react";
@@ -32,10 +34,6 @@ const PRESETS: { label: string; minutes: number }[] = [
   { label: "30 min", minutes: 30 },
   { label: "1 hr", minutes: 60 },
 ];
-
-function toLocalInputValue(date: Date): string {
-  return format(date, "yyyy-MM-dd'T'HH:mm");
-}
 
 function CreateReminderForm() {
   const router = useRouter();
@@ -108,17 +106,23 @@ function CreateReminderForm() {
     };
 
     let reminder: Reminder;
-    if (editId) {
-      const existing = await db.reminders.get(editId);
-      if (!existing) return;
-      reminder = { ...existing, ...base };
-      await updateReminder(reminder);
-    } else {
-      reminder = await createReminder(base);
-    }
+    try {
+      if (editId) {
+        const existing = await db.reminders.get(editId);
+        if (!existing) return;
+        reminder = { ...existing, ...base };
+        await updateReminder(reminder);
+      } else {
+        reminder = await createReminder(base);
+      }
 
-    if (addToTodo && !editId) {
-      await createTodo(reminder.title, reminder.id);
+      if (addToTodo && !editId) {
+        await createTodo(reminder.title, reminder.id);
+      }
+    } catch (err) {
+      console.error("Failed to save reminder", err);
+      toast.error("Couldn't save the reminder. Please try again.");
+      return;
     }
 
     router.push("/", { transitionTypes: ["nav-back"] });
@@ -222,6 +226,31 @@ function CreateReminderForm() {
               </Button>
             ))}
           </div>
+          {recurrence?.unit === "EVERY_N_DAYS" && (
+            <div className="flex items-center gap-2">
+              <Label htmlFor="every-n-days" className="text-sm text-muted-foreground">
+                Every
+              </Label>
+              <Input
+                id="every-n-days"
+                type="number"
+                min={1}
+                max={365}
+                value={recurrence.interval}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setRecurrence({
+                    ...recurrence,
+                    interval: Number.isFinite(n) && n > 0 ? Math.min(n, 365) : 1,
+                  });
+                }}
+                className="w-24"
+              />
+              <Label htmlFor="every-n-days" className="text-sm text-muted-foreground">
+                day(s)
+              </Label>
+            </div>
+          )}
         </div>
 
         <Separator />

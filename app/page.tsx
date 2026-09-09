@@ -10,10 +10,12 @@ import { getPreferences } from "../lib/db/preferences";
 import { ReminderCard } from "../components/ReminderCard";
 import { Button } from "../components/ui/button";
 import { PageTransition } from "../components/PageTransition";
+import { cn } from "../lib/utils";
 
 export default function HomePage() {
   const router = useRouter();
   const [checkedOnboarding, setCheckedOnboarding] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   useEffect(() => {
     getPreferences()
@@ -24,7 +26,26 @@ export default function HomePage() {
       .catch(() => setCheckedOnboarding(true));
   }, [router]);
 
+  // A notification click navigates to /?reminder={id} (see sw.js). Scroll to that reminder and
+  // flash a highlight, then drop the query param so the next visit doesn't re-highlight it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("reminder");
+    if (!id) return;
+    setHighlightId(id);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
   const reminders = useLiveQuery(() => db.reminders.filter((r) => !r.isArchived).sortBy("dueDate"), [], []);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const el = document.getElementById(`reminder-${highlightId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const t = setTimeout(() => setHighlightId(null), 2500);
+    return () => clearTimeout(t);
+  }, [highlightId, reminders]);
 
   if (!checkedOnboarding) return null;
 
@@ -53,7 +74,13 @@ export default function HomePage() {
 
         <div className="grid gap-3 sm:grid-cols-2 sm:auto-rows-fr">
           {active.map((r) => (
-            <ReminderCard key={r.id} reminder={r} />
+            <div
+              key={r.id}
+              id={`reminder-${r.id}`}
+              className={cn("scroll-mt-24 rounded-xl", highlightId === r.id && "ring-2 ring-primary motion-fade")}
+            >
+              <ReminderCard reminder={r} />
+            </div>
           ))}
         </div>
 
@@ -65,7 +92,13 @@ export default function HomePage() {
             </summary>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 sm:auto-rows-fr">
               {completed.map((r) => (
-                <ReminderCard key={r.id} reminder={r} />
+                <div
+                  key={r.id}
+                  id={`reminder-${r.id}`}
+                  className={cn("scroll-mt-24 rounded-xl", highlightId === r.id && "ring-2 ring-primary motion-fade")}
+                >
+                  <ReminderCard reminder={r} />
+                </div>
               ))}
             </div>
           </details>

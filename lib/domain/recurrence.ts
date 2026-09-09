@@ -38,4 +38,5 @@ export const RECURRENCE_OPTIONS: { value: RecurrenceRule | null; label: string }
   { value: { unit: "WEEKLY", interval: 1 }, label: "Weekly" },
   { value: { unit: "MONTHLY", interval: 1 }, label: "Monthly" },
   { value: { unit: "YEARLY", interval: 1 }, label: "Yearly" },
+  { value: { unit: "EVERY_N_DAYS", interval: 3 }, label: "Every N days" },
 ];

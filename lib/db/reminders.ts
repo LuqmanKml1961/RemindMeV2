@@ -26,6 +26,7 @@ export async function updateReminder(reminder: Reminder): Promise<void> {
 
 export async function deleteReminder(id: string): Promise<void> {
   await db.reminders.delete(id);
+  await db.todos.where("reminderId").equals(id).delete();
   await cancelReminderSchedule(id);
 }
 
@@ -48,5 +49,8 @@ export async function importReminder(payload: {
   amount: number | null;
   recurrence: Reminder["recurrence"];
 }): Promise<Reminder> {
-  return createReminder({ ...payload, autoDelete: false });
+  const reminder = await createReminder({ ...payload, autoDelete: false });
+  const updated = { ...reminder, sharedBy: "imported" };
+  await db.reminders.put(updated);
+  return updated;
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { computeNextDue } from "../../../../lib/domain/recurrence";
-import { cancelTrigger, deleteSubscription, getDueTriggers, getSubscription, rescheduleTrigger } from "../../../../lib/push/store";
+import { claimDueTriggers, deleteSubscription, getSubscription, upsertTrigger } from "../../../../lib/push/store";
 import { sendPush } from "../../../../lib/push/send";
 import { withErrors } from "../../../../lib/api/withErrors";
 
@@ -14,32 +14,38 @@ export const POST = withErrors(async (req: NextRequest) => {
   }
 
   const now = Date.now();
-  const due = await getDueTriggers(now);
+  const claimed = await claimDueTriggers(now);
   let sent = 0;
+  let failed = 0;
 
-  for (const trigger of due) {
+  for (const trigger of claimed) {
     const subscription = await getSubscription(trigger.deviceId);
-    if (!subscription) {
-      await cancelTrigger(trigger.reminderId, trigger.deviceId);
+    if (!subscription) continue;
+
+    const result = await sendPush(subscription, { title: trigger.title, body: trigger.body, reminderId: trigger.reminderId });
+    if (result === "gone") {
+      await deleteSubscription(trigger.deviceId);
       continue;
     }
-
-    const ok = await sendPush(subscription, { title: trigger.title, body: trigger.body, reminderId: trigger.reminderId });
-    if (!ok) {
-      await deleteSubscription(trigger.deviceId);
+    if (result === "failed") {
+      failed += 1;
+      // Re-insert recurring triggers so they retry on the next dispatch run.
+      if (trigger.recurrence) {
+        const next = computeNextDue(new Date(trigger.triggerAt), trigger.recurrence);
+        await upsertTrigger({ ...trigger, triggerAt: next.getTime() });
+      }
       continue;
     }
     sent += 1;
 
+    // "sent" — reschedule recurring triggers for the next occurrence.
     if (trigger.recurrence) {
       const next = computeNextDue(new Date(trigger.triggerAt), trigger.recurrence);
-      await rescheduleTrigger(trigger.reminderId, trigger.deviceId, next.getTime());
-    } else {
-      await cancelTrigger(trigger.reminderId, trigger.deviceId);
+      await upsertTrigger({ ...trigger, triggerAt: next.getTime() });
     }
   }
 
-  return NextResponse.json({ checked: due.length, sent });
+  return NextResponse.json({ checked: claimed.length, sent, failed });
 });
 
 export async function GET(req: NextRequest) {

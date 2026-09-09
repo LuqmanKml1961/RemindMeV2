@@ -4,7 +4,7 @@ import * as React from "react";
 import { format, setHours, setMinutes, setSeconds, setMilliseconds } from "date-fns";
 import { CalendarIcon, Clock } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { cn, toLocalInputValue } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -116,13 +116,5 @@ export function DatePicker({
         </div>
       </PopoverContent>
     </Popover>
-  );
-}
-
-function toLocalInputValue(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
   );
 }

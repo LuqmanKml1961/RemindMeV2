@@ -125,6 +125,7 @@ function reminderNotificationBody(reminder: Reminder): string {
 
 export async function syncReminderSchedule(reminder: Reminder): Promise<void> {
   if (getNotificationReadiness() !== "ready") return;
+  if (!(await hasActiveSubscription())) return;
   if (!reminder.dueDate || reminder.isCompleted || reminder.isArchived) {
     await cancelReminderSchedule(reminder.id);
     return;

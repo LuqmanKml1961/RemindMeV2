@@ -135,6 +135,31 @@ export async function getDueTriggers(nowMillis: number): Promise<ScheduledTrigge
   }));
 }
 
+/**
+ * Atomically SELECTs and DELETEs due triggers in a single write transaction.
+ * This prevents two concurrent dispatch invocations from processing the same trigger.
+ * Returns the claimed triggers (the rows that were deleted).
+ */
+export async function claimDueTriggers(nowMillis: number): Promise<ScheduledTriggerRow[]> {
+  await init();
+  const results = await getClient().batch(
+    [
+      { sql: `SELECT * FROM scheduled_triggers WHERE trigger_at <= ?`, args: [nowMillis] },
+      { sql: `DELETE FROM scheduled_triggers WHERE trigger_at <= ?`, args: [nowMillis] },
+    ],
+    "write"
+  );
+  const rows = results[0]?.rows ?? [];
+  return rows.map((row) => ({
+    reminderId: row.reminder_id as string,
+    deviceId: row.device_id as string,
+    title: row.title as string,
+    body: row.body as string,
+    triggerAt: row.trigger_at as number,
+    recurrence: row.recurrence_unit ? { unit: row.recurrence_unit as RecurrenceRule["unit"], interval: (row.recurrence_interval as number) ?? 1 } : null,
+  }));
+}
+
 export async function rescheduleTrigger(reminderId: string, deviceId: string, nextTriggerAt: number): Promise<void> {
   await init();
   await getClient().execute({

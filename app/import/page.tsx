@@ -3,6 +3,7 @@
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
@@ -32,10 +33,19 @@ export default function ImportPage() {
   const router = useRouter();
   const payload = useSharePayload();
   const [imported, setImported] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   async function handleImport() {
-    if (!payload) return;
-    await importReminder(payload);
+    if (!payload || importing) return;
+    setImporting(true);
+    try {
+      await importReminder(payload);
+    } catch (err) {
+      console.error("Failed to import reminder", err);
+      setImporting(false);
+      toast.error("Couldn't import this reminder. Please try again.");
+      return;
+    }
     // Drop the fragment so a refresh doesn't import the same link a second time.
     window.history.replaceState(null, "", window.location.pathname + window.location.search);
     setImported(true);
@@ -111,8 +121,8 @@ export default function ImportPage() {
         <p className="text-xs text-muted-foreground">
           This reminder was shared with you. Importing adds it to your device only.
         </p>
-        <Button className="w-full" onClick={handleImport}>
-          <Download /> Import
+        <Button className="w-full" onClick={handleImport} disabled={importing}>
+          <Download /> {importing ? "Importing..." : "Import"}
         </Button>
       </div>
     </PageTransition>

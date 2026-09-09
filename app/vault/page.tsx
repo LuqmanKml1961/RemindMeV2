@@ -2,17 +2,18 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
+import { toast } from "sonner";
 import { db } from "../../lib/db/dexie";
-import { createVaultReference, deleteVaultReference } from "../../lib/db/vault";
+import { createVaultReference, deleteVaultReference, updateVaultReference } from "../../lib/db/vault";
 import { VAULT_CATEGORY_LABELS } from "../../lib/domain/types";
-import type { VaultCategory } from "../../lib/domain/types";
+import type { VaultCategory, VaultReference } from "../../lib/domain/types";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { Card, CardContent } from "../../components/ui/card";
 import { PageTransition } from "../../components/PageTransition";
-import { Search, Plus, Trash2, X, Save } from "lucide-react";
+import { Search, Plus, Trash2, X, Save, Pencil } from "lucide-react";
 
 const CATEGORIES = Object.keys(VAULT_CATEGORY_LABELS) as VaultCategory[];
 
@@ -20,6 +21,7 @@ export default function VaultPage() {
   const [category, setCategory] = useState<VaultCategory>("PEOPLE");
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<VaultReference | null>(null);
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
 
@@ -33,13 +35,47 @@ export default function VaultPage() {
     (e) => !query.trim() || e.title.toLowerCase().includes(query.toLowerCase()) || e.note.toLowerCase().includes(query.toLowerCase())
   );
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    if (!title.trim()) return;
-    await createVaultReference(category, title.trim(), note.trim());
+  function startAdd() {
+    setEditing(null);
     setTitle("");
     setNote("");
+    setAdding(true);
+  }
+
+  function startEdit(entry: VaultReference) {
+    setEditing(entry);
+    setTitle(entry.title);
+    setNote(entry.note);
+    setAdding(true);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    try {
+      if (editing) {
+        await updateVaultReference({ ...editing, title: title.trim(), note: note.trim() });
+      } else {
+        await createVaultReference(category, title.trim(), note.trim());
+      }
+    } catch (err) {
+      console.error("Failed to save vault entry", err);
+      toast.error("Couldn't save the entry. Please try again.");
+      return;
+    }
+    setTitle("");
+    setNote("");
+    setEditing(null);
     setAdding(false);
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteVaultReference(id);
+    } catch (err) {
+      console.error("Failed to delete vault entry", err);
+      toast.error("Couldn't delete the entry. Please try again.");
+    }
   }
 
   return (
@@ -57,7 +93,11 @@ export default function VaultPage() {
               type="button"
               size="sm"
               variant={category === cat ? "default" : "outline"}
-              onClick={() => setCategory(cat)}
+              onClick={() => {
+                setCategory(cat);
+                setAdding(false);
+                setEditing(null);
+              }}
             >
               {VAULT_CATEGORY_LABELS[cat]}
             </Button>
@@ -77,14 +117,25 @@ export default function VaultPage() {
                   <p className="font-medium">{entry.title}</p>
                   {entry.note && <p className="mt-1 text-sm whitespace-pre-wrap text-muted-foreground">{entry.note}</p>}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="shrink-0 text-destructive"
-                  onClick={() => deleteVaultReference(entry.id)}
-                >
-                  <Trash2 />
-                </Button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => startEdit(entry)}
+                    aria-label="Edit"
+                  >
+                    <Pencil />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-destructive"
+                    onClick={() => handleDelete(entry.id)}
+                    aria-label="Delete"
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -96,10 +147,10 @@ export default function VaultPage() {
         )}
 
         {adding ? (
-          <form onSubmit={handleAdd} className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border bg-card p-4">
             <div className="flex items-center justify-between">
-              <Label className="text-base">New entry</Label>
-              <Button variant="ghost" size="icon-sm" onClick={() => setAdding(false)}>
+              <Label className="text-base">{editing ? "Edit entry" : "New entry"}</Label>
+              <Button variant="ghost" size="icon-sm" onClick={() => { setAdding(false); setEditing(null); }}>
                 <X />
               </Button>
             </div>
@@ -112,16 +163,16 @@ export default function VaultPage() {
               <Textarea id="vault-note" value={note} onChange={(e) => setNote(e.target.value)} rows={4} />
             </div>
             <div className="flex gap-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setAdding(false)}>
+              <Button type="button" variant="outline" className="flex-1" onClick={() => { setAdding(false); setEditing(null); }}>
                 Cancel
               </Button>
               <Button type="submit" className="flex-1">
-                <Save /> Save
+                <Save /> {editing ? "Save changes" : "Save"}
               </Button>
             </div>
           </form>
         ) : (
-          <Button className="w-full" onClick={() => setAdding(true)}>
+          <Button className="w-full" onClick={startAdd}>
             <Plus /> Add to {VAULT_CATEGORY_LABELS[category]}
           </Button>
         )}

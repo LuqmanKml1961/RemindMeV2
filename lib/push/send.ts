@@ -22,11 +22,12 @@ export interface PushPayload {
   reminderId: string;
 }
 
-/** Returns false if the subscription is gone (410/404) so the caller can drop it. */
-export async function sendPush(row: PushSubscriptionRow, payload: PushPayload): Promise<boolean> {
+export type SendResult = "sent" | "gone" | "failed";
+
+export async function sendPush(row: PushSubscriptionRow, payload: PushPayload): Promise<SendResult> {
   if (!ensureConfigured()) {
     console.warn("VAPID keys not configured — skipping push send");
-    return true;
+    return "failed";
   }
   try {
     await webpush.sendNotification(
@@ -36,11 +37,11 @@ export async function sendPush(row: PushSubscriptionRow, payload: PushPayload): 
       },
       JSON.stringify(payload)
     );
-    return true;
+    return "sent";
   } catch (err: unknown) {
     const statusCode = (err as { statusCode?: number }).statusCode;
-    if (statusCode === 404 || statusCode === 410) return false;
+    if (statusCode === 404 || statusCode === 410) return "gone";
     console.error("web-push send failed", err);
-    return true;
+    return "failed";
   }
 }
