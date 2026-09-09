@@ -19,7 +19,6 @@ import { getPreferences } from "../../lib/db/preferences";
 import { RECURRENCE_OPTIONS } from "../../lib/domain/recurrence";
 import type { Medication, Reminder, ReminderType, RecurrenceRule } from "../../lib/domain/types";
 import { Pill, Plus, Trash2, Save, X, Wallet } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const TYPES: { value: ReminderType; label: string }[] = [
   { value: "GENERAL", label: "General" },
@@ -249,7 +248,7 @@ function CreateReminderForm() {
           <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>
             <X /> Cancel
           </Button>
-          <Button type="submit" className={cn("flex-1")}>
+          <Button type="submit" className="flex-1">
             <Save /> Save
           </Button>
         </div>

@@ -13,7 +13,6 @@ import { Textarea } from "../../components/ui/textarea";
 import { Card, CardContent } from "../../components/ui/card";
 import { PageTransition } from "../../components/PageTransition";
 import { Search, Plus, Trash2, X, Save } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const CATEGORIES = Object.keys(VAULT_CATEGORY_LABELS) as VaultCategory[];
 
@@ -122,7 +121,7 @@ export default function VaultPage() {
             </div>
           </form>
         ) : (
-          <Button className={cn("w-full")} onClick={() => setAdding(true)}>
+          <Button className="w-full" onClick={() => setAdding(true)}>
             <Plus /> Add to {VAULT_CATEGORY_LABELS[category]}
           </Button>
         )}

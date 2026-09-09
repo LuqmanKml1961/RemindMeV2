@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { computeNextDue } from "../../../../lib/domain/recurrence";
-import { deleteSubscription, deleteTrigger, getDueTriggers, getSubscription, rescheduleTrigger } from "../../../../lib/push/store";
+import { cancelTrigger, deleteSubscription, getDueTriggers, getSubscription, rescheduleTrigger } from "../../../../lib/push/store";
 import { sendPush } from "../../../../lib/push/send";
 import { withErrors } from "../../../../lib/api/withErrors";
 
@@ -20,7 +20,7 @@ export const POST = withErrors(async (req: NextRequest) => {
   for (const trigger of due) {
     const subscription = await getSubscription(trigger.deviceId);
     if (!subscription) {
-      await deleteTrigger(trigger.reminderId, trigger.deviceId);
+      await cancelTrigger(trigger.reminderId, trigger.deviceId);
       continue;
     }
 
@@ -35,7 +35,7 @@ export const POST = withErrors(async (req: NextRequest) => {
       const next = computeNextDue(new Date(trigger.triggerAt), trigger.recurrence);
       await rescheduleTrigger(trigger.reminderId, trigger.deviceId, next.getTime());
     } else {
-      await deleteTrigger(trigger.reminderId, trigger.deviceId);
+      await cancelTrigger(trigger.reminderId, trigger.deviceId);
     }
   }
 

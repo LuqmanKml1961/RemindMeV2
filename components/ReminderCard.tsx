@@ -12,6 +12,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Card } from "./ui/card";
 import { Share, Pencil, Trash2, Repeat } from "lucide-react";
 import { ShareDialog } from "./ShareDialog";
+import { cn } from "@/lib/utils";
 
 const TYPE_ACCENT: Record<Reminder["type"], string> = {
   GENERAL: "border-l-primary",
@@ -40,7 +41,13 @@ export function ReminderCard({ reminder }: { reminder: Reminder }) {
   const overdue = reminder.dueDate && !reminder.isCompleted && new Date(reminder.dueDate).getTime() < now;
 
   return (
-    <Card className={`flex h-full flex-col border-l-4 ${TYPE_ACCENT[reminder.type]} ${reminder.isCompleted ? "opacity-60" : ""}`}>
+    <Card
+      className={cn(
+        "flex h-full flex-col border-l-4",
+        TYPE_ACCENT[reminder.type],
+        reminder.isCompleted && "opacity-60"
+      )}
+    >
       <div className="flex flex-1 items-start justify-between gap-3 px-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">

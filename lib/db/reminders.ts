@@ -48,14 +48,5 @@ export async function importReminder(payload: {
   amount: number | null;
   recurrence: Reminder["recurrence"];
 }): Promise<Reminder> {
-  return createReminder({
-    title: payload.title,
-    description: payload.description,
-    type: payload.type,
-    dueDate: payload.dueDate,
-    medications: payload.medications,
-    amount: payload.amount,
-    recurrence: payload.recurrence,
-    autoDelete: false,
-  });
+  return createReminder({ ...payload, autoDelete: false });
 }

@@ -36,6 +36,8 @@ export default function ImportPage() {
   async function handleImport() {
     if (!payload) return;
     await importReminder(payload);
+    // Drop the fragment so a refresh doesn't import the same link a second time.
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
     setImported(true);
   }
 

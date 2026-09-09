@@ -142,7 +142,3 @@ export async function rescheduleTrigger(reminderId: string, deviceId: string, ne
     args: [nextTriggerAt, reminderId, deviceId],
   });
 }
-
-export async function deleteTrigger(reminderId: string, deviceId: string): Promise<void> {
-  await cancelTrigger(reminderId, deviceId);
-}

@@ -16,10 +16,12 @@ export default function HomePage() {
   const [checkedOnboarding, setCheckedOnboarding] = useState(false);
 
   useEffect(() => {
-    getPreferences().then((prefs) => {
-      if (!prefs.hasSeenOnboarding) router.replace("/onboarding");
-      else setCheckedOnboarding(true);
-    });
+    getPreferences()
+      .then((prefs) => {
+        if (!prefs.hasSeenOnboarding) router.replace("/onboarding");
+        else setCheckedOnboarding(true);
+      })
+      .catch(() => setCheckedOnboarding(true));
   }, [router]);
 
   const reminders = useLiveQuery(() => db.reminders.filter((r) => !r.isArchived).sortBy("dueDate"), [], []);

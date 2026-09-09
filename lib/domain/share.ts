@@ -2,8 +2,9 @@
 // shared reminder by shareId in the recipient's own local Room DB (only works on the same device).
 // Here the reminder data itself travels in the URL fragment (never sent to any server), so import
 // works cross-device with no backend involvement.
+import { format } from "date-fns";
 import { recurrenceLabel } from "./recurrence";
-import type { Reminder } from "./types";
+import type { Medication, RecurrenceRule, Reminder, ReminderType } from "./types";
 
 export interface SharePayload {
   title: string;
@@ -42,11 +43,55 @@ export function encodeShareFragment(reminder: Reminder): string {
   return toBase64Url(JSON.stringify(payload));
 }
 
+const REMINDER_TYPES = new Set<string>(["GENERAL", "MEDICAL", "MONTHLY"]);
+const RECURRENCE_UNITS = new Set<string>(["DAILY", "WEEKLY", "MONTHLY", "YEARLY", "EVERY_N_DAYS"]);
+
+function normalizeMedications(value: unknown): Medication[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (med): med is Medication =>
+      typeof med === "object" && med !== null && typeof (med as Medication).name === "string"
+  );
+}
+
+function normalizeAmount(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeRecurrence(value: unknown): RecurrenceRule | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { unit, interval } = value as { unit?: unknown; interval?: unknown };
+  if (typeof unit !== "string" || !RECURRENCE_UNITS.has(unit)) return null;
+  return {
+    unit: unit as RecurrenceRule["unit"],
+    interval: typeof interval === "number" && Number.isFinite(interval) && interval > 0 ? interval : 1,
+  };
+}
+
 export function decodeShareFragment(fragment: string): SharePayload | null {
   try {
-    const parsed = JSON.parse(fromBase64Url(fragment));
-    if (typeof parsed !== "object" || parsed === null || typeof parsed.title !== "string") return null;
-    return parsed as SharePayload;
+    const parsed = JSON.parse(fromBase64Url(fragment)) as Record<string, unknown>;
+    if (parsed === null || typeof parsed !== "object") return null;
+    if (typeof parsed.title !== "string" || !parsed.title.trim()) return null;
+    if (typeof parsed.type !== "string" || !REMINDER_TYPES.has(parsed.type)) return null;
+
+    let dueDate: string | null = null;
+    if (typeof parsed.dueDate === "string" && !Number.isNaN(new Date(parsed.dueDate).getTime())) {
+      dueDate = parsed.dueDate;
+    }
+
+    return {
+      title: parsed.title,
+      description: typeof parsed.description === "string" ? parsed.description : "",
+      type: parsed.type as ReminderType,
+      dueDate,
+      medications: normalizeMedications(parsed.medications),
+      amount: normalizeAmount(parsed.amount),
+      recurrence: normalizeRecurrence(parsed.recurrence),
+    };
   } catch {
     return null;
   }
@@ -69,7 +114,10 @@ export function buildShareText(reminder: Reminder): string {
     lines.push(`Amount: RM${reminder.amount}`);
   }
   if (reminder.recurrence) lines.push(`Repeats: ${recurrenceLabel(reminder.recurrence)}`);
-  if (reminder.dueDate) lines.push(`Due: ${reminder.dueDate.slice(0, 16).replace("T", " ")}`);
+  if (reminder.dueDate) {
+    const due = new Date(reminder.dueDate);
+    if (!Number.isNaN(due.getTime())) lines.push(`Due: ${format(due, "d MMM, h:mm a")}`);
+  }
   const link = buildShareLink(reminder);
   if (link) lines.push(`Tap to import: ${link}`);
   return lines.join("\n");
