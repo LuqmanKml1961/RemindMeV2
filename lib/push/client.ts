@@ -1,5 +1,6 @@
 // Client-side push subscription + iOS-aware permission flow.
-import { getDeviceId } from "../db/preferences";
+import { db } from "../db/dexie";
+import { getDeviceId, getPushToken, updatePreferences } from "../db/preferences";
 import type { Reminder } from "../domain/types";
 
 export function isStandalone(): boolean {
@@ -96,15 +97,20 @@ export async function requestNotificationPermissionAndSubscribe(): Promise<Notif
     }
 
     const deviceId = await getDeviceId();
+    const pushToken = await getPushToken();
     const response = await fetch("/api/push/subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceId, subscription: subscription.toJSON() }),
+      body: JSON.stringify({ deviceId, subscription: subscription.toJSON(), deviceToken: pushToken }),
     });
     if (!response.ok) {
       console.error("Saving push subscription failed", response.status, await response.text().catch(() => ""));
       return "not-configured";
     }
+    const data = (await response.json().catch(() => null)) as { deviceToken?: string } | null;
+    // The server either issued a fresh token or confirmed the existing one — store it so
+    // schedule/cancel requests can authenticate.
+    if (data?.deviceToken) await updatePreferences({ pushToken: data.deviceToken });
   } catch (err) {
     console.error("Push subscribe failed", err);
     return "not-configured";
@@ -123,33 +129,94 @@ function reminderNotificationBody(reminder: Reminder): string {
   return reminder.description || "Your reminder is due";
 }
 
-export async function syncReminderSchedule(reminder: Reminder): Promise<void> {
-  if (getNotificationReadiness() !== "ready") return;
-  if (!(await hasActiveSubscription())) return;
-  if (!reminder.dueDate || reminder.isCompleted || reminder.isArchived) {
-    await cancelReminderSchedule(reminder.id);
-    return;
+// True if the server is guaranteed to be in sync for this reminder. False means it's flagged as
+// pushSyncPending and retryPendingSchedules() will re-drive it — nothing is silently dropped.
+export async function syncReminderSchedule(reminder: Reminder): Promise<boolean> {
+  const readiness = getNotificationReadiness();
+  // These devices can never deliver push — nothing to schedule, nothing to flag.
+  if (readiness === "unsupported" || readiness === "needs-install") return true;
+  if (readiness !== "ready" || !(await hasActiveSubscription())) {
+    // Push isn't enabled yet. Flag it so that enabling notifications (or the next online sync)
+    // picks it up — this covers reminders created while offline or before the user opted in.
+    await setPushSyncPending(reminder.id, true);
+    return false;
   }
-  const deviceId = await getDeviceId();
-  await fetch("/api/push/schedule", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      deviceId,
-      reminderId: reminder.id,
-      title: reminder.title,
-      body: reminderNotificationBody(reminder),
-      triggerAt: reminder.dueDate,
-      recurrence: reminder.recurrence,
-    }),
-  }).catch(() => undefined);
+  return syncWithServer(reminder);
 }
 
-export async function cancelReminderSchedule(reminderId: string): Promise<void> {
+async function syncWithServer(reminder: Reminder): Promise<boolean> {
   const deviceId = await getDeviceId();
-  await fetch("/api/push/cancel", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ deviceId, reminderId }),
-  }).catch(() => undefined);
+  const pushToken = await getPushToken();
+
+  // Completed/archived/dateless reminders must not keep a server trigger.
+  if (!reminder.dueDate || reminder.isCompleted || reminder.isArchived) {
+    const ok = await cancelReminderSchedule(reminder.id);
+    await setPushSyncPending(reminder.id, !ok);
+    return ok;
+  }
+
+  try {
+    const res = await fetch("/api/push/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        deviceId,
+        deviceToken: pushToken,
+        reminderId: reminder.id,
+        title: reminder.title,
+        body: reminderNotificationBody(reminder),
+        triggerAt: reminder.dueDate,
+        recurrence: reminder.recurrence,
+      }),
+    });
+    if (res.status === 401) {
+      // Stale/unknown token — the subscription was dropped server-side (e.g. expired key). Drop
+      // the local token and stop flagging until the user re-enables in settings.
+      await updatePreferences({ pushToken: "" });
+      await setPushSyncPending(reminder.id, false);
+      return true;
+    }
+    if (!res.ok) {
+      console.error("Push schedule rejected", res.status);
+      await setPushSyncPending(reminder.id, true);
+      return false;
+    }
+    await setPushSyncPending(reminder.id, false);
+    return true;
+  } catch (err) {
+    console.error("Push schedule failed", err);
+    await setPushSyncPending(reminder.id, true);
+    return false;
+  }
+}
+
+export async function cancelReminderSchedule(reminderId: string): Promise<boolean> {
+  const deviceId = await getDeviceId();
+  const pushToken = await getPushToken();
+  if (!pushToken) return true; // never scheduled — nothing to cancel
+
+  try {
+    const res = await fetch("/api/push/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId, deviceToken: pushToken, reminderId }),
+    });
+    if (res.status === 401) {
+      await updatePreferences({ pushToken: "" });
+      return true;
+    }
+    if (!res.ok) return false;
+    return true;
+  } catch (err) {
+    console.error("Push cancel failed", err);
+    return false;
+  }
+}
+
+async function setPushSyncPending(id: string, pending: boolean): Promise<void> {
+  try {
+    await db.reminders.update(id, { pushSyncPending: pending });
+  } catch (err) {
+    console.error("Failed to record push sync state", err);
+  }
 }

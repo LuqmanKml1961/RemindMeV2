@@ -54,3 +54,16 @@ export async function importReminder(payload: {
   await db.reminders.put(updated);
   return updated;
 }
+
+// Re-drives server-side push scheduling for every reminder whose sync previously failed (created
+// offline, push not yet enabled, transient network blip, etc.). Returns how many are now in sync.
+// Hook this into connectivity changes and after enabling notifications.
+export async function retryPendingSchedules(): Promise<number> {
+  const pending = await db.reminders.filter((r) => r.pushSyncPending === true).toArray();
+  let synced = 0;
+  for (const reminder of pending) {
+    const ok = await syncReminderSchedule(reminder);
+    if (ok) synced += 1;
+  }
+  return synced;
+}

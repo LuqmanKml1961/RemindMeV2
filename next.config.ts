@@ -12,7 +12,6 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["10.1.3.78"],
   poweredByHeader: false,
   experimental: {
     useOffline: true,

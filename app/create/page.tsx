@@ -57,21 +57,28 @@ function CreateReminderForm() {
 
   useEffect(() => {
     if (!editId) return;
-    db.reminders.get(editId).then((r) => {
-      if (!r) {
+    db.reminders
+      .get(editId)
+      .then((r) => {
+        if (!r) {
+          setLoaded(true);
+          return;
+        }
+        setTitle(r.title);
+        setDescription(r.description);
+        setType(r.type);
+        setDueDate(r.dueDate ? toLocalInputValue(new Date(r.dueDate)) : "");
+        setMedications(r.medications);
+        setAmount(r.amount != null ? String(r.amount) : "");
+        setRecurrence(r.recurrence);
+        setAutoDelete(r.autoDelete);
         setLoaded(true);
-        return;
-      }
-      setTitle(r.title);
-      setDescription(r.description);
-      setType(r.type);
-      setDueDate(r.dueDate ? toLocalInputValue(new Date(r.dueDate)) : "");
-      setMedications(r.medications);
-      setAmount(r.amount != null ? String(r.amount) : "");
-      setRecurrence(r.recurrence);
-      setAutoDelete(r.autoDelete);
-      setLoaded(true);
-    });
+      })
+      .catch((err) => {
+        console.error("Failed to load reminder for editing", err);
+        toast.error("Couldn't load that reminder. Please try again.");
+        setLoaded(true);
+      });
   }, [editId]);
 
   function applyPreset(minutes: number) {
@@ -109,7 +116,11 @@ function CreateReminderForm() {
     try {
       if (editId) {
         const existing = await db.reminders.get(editId);
-        if (!existing) return;
+        if (!existing) {
+          toast.error("That reminder no longer exists.");
+          router.push("/");
+          return;
+        }
         reminder = { ...existing, ...base };
         await updateReminder(reminder);
       } else {

@@ -4,6 +4,7 @@
 // works cross-device with no backend involvement.
 import { format } from "date-fns";
 import { recurrenceLabel } from "./recurrence";
+import { uuid } from "../uuid";
 import type { Medication, RecurrenceRule, Reminder, ReminderType } from "./types";
 
 export interface SharePayload {
@@ -46,12 +47,24 @@ export function encodeShareFragment(reminder: Reminder): string {
 const REMINDER_TYPES = new Set<string>(["GENERAL", "MEDICAL", "MONTHLY"]);
 const RECURRENCE_UNITS = new Set<string>(["DAILY", "WEEKLY", "MONTHLY", "YEARLY", "EVERY_N_DAYS"]);
 
+// Meds without an id (hand-crafted share links) get one here — otherwise the edit page's
+// update/remove keyed on `id` silently fails and React gets `undefined` keys.
 function normalizeMedications(value: unknown): Medication[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(
-    (med): med is Medication =>
-      typeof med === "object" && med !== null && typeof (med as Medication).name === "string"
-  );
+  const meds: Medication[] = [];
+  for (const item of value) {
+    if (typeof item !== "object" || item === null) continue;
+    const med = item as Record<string, unknown>;
+    const name = typeof med.name === "string" ? med.name : "";
+    if (!name.trim()) continue;
+    meds.push({
+      id: typeof med.id === "string" && med.id ? med.id : uuid(),
+      name,
+      dosage: typeof med.dosage === "string" ? med.dosage : "",
+      instructions: typeof med.instructions === "string" ? med.instructions : "",
+    });
+  }
+  return meds;
 }
 
 function normalizeAmount(value: unknown): number | null {

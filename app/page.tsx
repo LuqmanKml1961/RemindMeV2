@@ -32,8 +32,11 @@ export default function HomePage() {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("reminder");
     if (!id) return;
-    setHighlightId(id);
     window.history.replaceState(null, "", window.location.pathname);
+    // Defer the state write out of the effect body (avoids a cascading-render setState) — the
+    // highlight/scroll effect below reacts to it once set.
+    const t = setTimeout(() => setHighlightId(id), 0);
+    return () => clearTimeout(t);
   }, []);
 
   const reminders = useLiveQuery(() => db.reminders.filter((r) => !r.isArchived).sortBy("dueDate"), [], []);

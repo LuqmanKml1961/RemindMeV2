@@ -31,6 +31,10 @@ export interface Reminder {
   recurrence: RecurrenceRule | null;
   shareId: string | null;
   sharedBy: string | null;
+  // True when the server-side push schedule is not (yet) in sync for this reminder — e.g. it was
+  // created/edited while offline. retryPendingSchedules() re-drives these whenever connectivity
+  // returns or the user enables notifications.
+  pushSyncPending?: boolean;
 }
 
 export type VaultCategory = "PEOPLE" | "HOME_VEHICLE" | "PROPERTY";
@@ -63,4 +67,7 @@ export interface Preferences {
   autoDeleteDefault: boolean;
   hasSeenOnboarding: boolean;
   deviceId: string;
+  // Server-issued secret proving ownership of deviceId (see /api/push/subscribe). Sent with every
+  // mutating push request so a known deviceId alone can't cancel triggers or spoof subscriptions.
+  pushToken: string;
 }

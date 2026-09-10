@@ -3,13 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
 import { getPreferences, updatePreferences } from "../../lib/db/preferences";
+import { retryPendingSchedules } from "../../lib/db/reminders";
 import { getNotificationReadiness, hasActiveSubscription, requestNotificationPermissionAndSubscribe, type NotificationReadiness } from "../../lib/push/client";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Switch } from "../../components/ui/switch";
 import { PageTransition } from "../../components/PageTransition";
 import { Bell, RotateCcw, BellOff } from "lucide-react";
+
 const STATUS_COPY: Record<NotificationReadiness, string> = {
   unsupported: "Not supported in this browser.",
   "needs-install": "Add RemindMe to your Home Screen first (Share → Add to Home Screen), then come back here.",
@@ -26,6 +29,7 @@ export default function SettingsPage() {
   const [status, setStatus] = useState<NotificationReadiness>(() =>
     typeof window === "undefined" ? "needs-permission" : getNotificationReadiness()
   );
+  const [enabling, setEnabling] = useState(false);
 
   useEffect(() => {
     getPreferences().then((p) => setAutoDeleteDefault(p.autoDeleteDefault));
@@ -41,18 +45,44 @@ export default function SettingsPage() {
   }, []);
 
   async function toggleAutoDelete(value: boolean) {
-    setAutoDeleteDefault(value);
-    await updatePreferences({ autoDeleteDefault: value });
+    try {
+      await updatePreferences({ autoDeleteDefault: value });
+      setAutoDeleteDefault(value);
+    } catch (err) {
+      console.error("Failed to update auto-delete default", err);
+      toast.error("Couldn't update the setting. Please try again.");
+    }
   }
 
   async function enableNotifications() {
-    const result = await requestNotificationPermissionAndSubscribe();
-    setStatus(result);
+    if (enabling) return;
+    setEnabling(true);
+    try {
+      const result = await requestNotificationPermissionAndSubscribe();
+      setStatus(result);
+      if (result === "ready") {
+        toast.success("Notifications enabled");
+        // Reminders created before push was enabled (or while offline) may have missed their
+        // server-side schedule — push them through now.
+        const synced = await retryPendingSchedules().catch(() => 0);
+        if (synced > 0) toast.success(`${synced} reminder${synced === 1 ? "" : "s"} scheduled for push`);
+      }
+    } catch (err) {
+      console.error("Failed to enable notifications", err);
+      toast.error("Couldn't enable notifications. Please try again.");
+    } finally {
+      setEnabling(false);
+    }
   }
 
   async function replayGuide() {
-    await updatePreferences({ hasSeenOnboarding: false });
-    router.push("/onboarding");
+    try {
+      await updatePreferences({ hasSeenOnboarding: false });
+      router.push("/onboarding");
+    } catch (err) {
+      console.error("Failed to reset onboarding", err);
+      toast.error("Couldn't replay the guide. Please try again.");
+    }
   }
 
   const isDark = resolvedTheme === "dark";
@@ -73,9 +103,11 @@ export default function SettingsPage() {
             <div className="flex-1">
               <p className="font-medium">Notifications</p>
               <p className="mt-1 text-sm text-muted-foreground">{STATUS_COPY[status]}</p>
-              {status !== "ready" && status !== "unsupported" && (
-                <Button className="mt-3" onClick={enableNotifications}>
-                  Enable Notifications
+              {/* "denied" has no button — re-asking would instantly fail; the copy points the user
+                  to their browser's site settings instead. */}
+              {status !== "ready" && status !== "unsupported" && status !== "denied" && (
+                <Button className="mt-3" onClick={enableNotifications} disabled={enabling}>
+                  {enabling ? "Enabling…" : "Enable Notifications"}
                 </Button>
               )}
             </div>

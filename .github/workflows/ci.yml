@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit --incremental false
+      - run: npm run test
+      - run: npm run build
+        env:
+          # Build-only vars so the production bundle is representative of a real deploy.
+          VAPID_PUBLIC_KEY: test_public_key_for_ci_build
+          VAPID_PRIVATE_KEY: test_private_key_for_ci_build
+          CRON_SECRET: ci-secret

@@ -158,14 +158,14 @@ The reminder's data is embedded directly in the share link's URL fragment (`/imp
 | `app/api/push/unsubscribe/route.ts` | Deletes a device's subscription and all its scheduled triggers. |
 | `app/api/push/schedule/route.ts` | Upserts one scheduled trigger (reminder id, title, body, trigger time, recurrence) for a device. |
 | `app/api/push/cancel/route.ts` | Deletes one scheduled trigger (reminder completed/deleted/dated cleared). |
-| `app/api/push/dispatch/route.ts` | The cron target: finds due triggers, sends each push, reschedules recurring ones or deletes one-offs. Protected by `CRON_SECRET` if set. |
+| `app/api/push/dispatch/route.ts` | The cron target: finds due triggers, sends each push, reschedules recurring ones, and re-queues one-off send failures (bounded retries) so notifications aren't silently dropped. Requires `CRON_SECRET` - unset means dispatch refuses to run (503). GET is a no-op; only an authenticated POST dispatches. |
 | `app/api/push/vapid-public-key/route.ts` | Returns the server's VAPID public key so the client can subscribe - see [why this isn't a build-time env var](#why-the-vapid-public-key-is-fetched-not-baked-in) below. |
 
 ### `components/`
 
 | File | What it does |
 | --- | --- |
-| `Brutal.tsx` | The design system primitives - `BrutalButton`, `BrutalCard`, `BrutalInput`, `BrutalTextarea`, `BrutalLabel`, `BrutalChip`. Hard 2px borders, no rounded corners, uppercase bold labels - ported from the original app's Compose "brutalist" theme. |
+| `components/ui/` | shadcn/base-ui primitives (button, card, input, switch, badge, …) - the current design system, replacing a previous standalone `Brutal.tsx` set. |
 | `BottomNav.tsx` | The Home/Todo/Vault/Settings tab bar; hides itself on `/onboarding` and `/import`. |
 | `PwaRegister.tsx` | Client component that registers `public/sw.js` on mount. |
 | `ReminderCard.tsx` | One reminder in the list: shows medications/amount depending on type, overdue highlighting (re-checked every 30s via a small `useNow` hook), complete checkbox, edit/share/delete actions. |
@@ -189,7 +189,7 @@ Pure logic with no browser/server dependencies - the equivalent of the original 
 | `reminders.ts` | `createReminder`, `updateReminder`, `deleteReminder`, `setCompleted` (handles auto-delete-on-complete), `importReminder`. Every create/update also calls into `lib/push/client.ts` to keep the server-side schedule in sync. |
 | `todos.ts` | `createTodo`, `updateTodo`, `deleteTodo`, `toggleTodo`. |
 | `vault.ts` | `createVaultReference`, `updateVaultReference`, `deleteVaultReference`. |
-| `preferences.ts` | A single "singleton" row holding `autoDeleteDefault`, `hasSeenOnboarding`, and a randomly-generated `deviceId` (used to key push subscriptions/schedules server-side - there are no user accounts, so this anonymous per-browser id is how the server knows which subscription belongs to which set of scheduled reminders). |
+| `preferences.ts` | A single "singleton" row holding `autoDeleteDefault`, `hasSeenOnboarding`, a randomly-generated `deviceId` (used to key push subscriptions/schedules server-side - there are no user accounts, so this anonymous per-browser id is how the server knows which subscription belongs to which set of scheduled reminders), and a server-issued `pushToken` that authorizes schedule/cancel requests. |
 
 Pages read data reactively via `dexie-react-hooks`' `useLiveQuery` - the UI updates automatically whenever the underlying IndexedDB data changes, no manual refetching.
 
@@ -197,21 +197,19 @@ Pages read data reactively via `dexie-react-hooks`' `useLiveQuery` - the UI upda
 
 | File | Runs where | What it does |
 | --- | --- | --- |
-| `client.ts` | Browser | `getNotificationReadiness()` (checks platform support / iOS install requirement / permission state), `requestNotificationPermissionAndSubscribe()` (the actual subscribe flow), `hasActiveSubscription()` (double-checks a real subscription exists rather than trusting permission state alone), `syncReminderSchedule()` / `cancelReminderSchedule()` (called by `lib/db/reminders.ts` on every create/update/delete). |
-| `store.ts` | Server only (`import "server-only"`) | All database access for push delivery - `saveSubscription`, `deleteSubscription`, `getSubscription`, `upsertTrigger`, `cancelTrigger`, `getDueTriggers`, `rescheduleTrigger`. Lazily creates the libSQL client (see [below](#why-the-libsql-client-is-created-lazily)) and auto-creates its two tables on first use. |
+| `client.ts` | Browser | `getNotificationReadiness()` (checks platform support / iOS install requirement / permission state), `requestNotificationPermissionAndSubscribe()` (the actual subscribe flow - also stores the server-issued `pushToken`), `hasActiveSubscription()` (double-checks a real subscription exists rather than trusting permission state alone), `syncReminderSchedule()` / `cancelReminderSchedule()` (called by `lib/db/reminders.ts` on every create/update/delete). Failed syncs mark the reminder `pushSyncPending`; `retryPendingSchedules()` re-drives them on app load, when connectivity returns, and after enabling notifications. |
+| `store.ts` | Server only (`import "server-only"`) | All database access for push delivery - `saveSubscription` (mints a per-device token), `deleteSubscription`, `getSubscription`, `verifyDevice`, `upsertTrigger`, `cancelTrigger`, `claimDueTriggers` (atomic claim, bounded by a per-run backlog cap). Lazily creates the libSQL client (see [below](#why-the-libsql-client-is-created-lazily)), auto-creates/migrates its tables on first use, and retries a failed init instead of bricking the process. |
 | `send.ts` | Server only | Wraps the `web-push` library - configures VAPID details once, sends one push, and reports back whether the subscription is dead (404/410 from the push service) so the caller can clean it up. |
 
 ### `lib/api/withErrors.ts`
 
-Wraps every push API route handler in a try/catch that logs server-side and returns `{ error: message }` as JSON instead of letting an unhandled exception produce Next.js's default **empty 500 response with no body** - which is nearly impossible to debug against a deployed app with no direct log access. This one change is what turned "the deploy is broken, no idea why" into an immediately readable error message during setup.
+Wraps every push API route handler in a try/catch that logs server-side and returns a JSON error instead of letting an unhandled exception produce Next.js's default **empty 500 response with no body**. In development the full error message is returned (invaluable during setup); in production, 5xx responses are masked to `internal server error` so internal DB/path details never leak to clients. This one change is what turned "the deploy is broken, no idea why" into an immediately readable error message during setup.
 
 ### `lib/uuid.ts` and `lib/clipboard.ts`
 
 Small platform-compatibility shims:
 - `uuid()` falls back from `crypto.randomUUID()` (which only exists in secure contexts - HTTPS or `localhost`) to `crypto.getRandomValues()`-based generation, so the app still works when opened over a plain-HTTP LAN address during local device testing.
 - `copyToClipboard()` falls back from `navigator.clipboard.writeText()` (same secure-context restriction) to the classic `document.execCommand('copy')` technique.
-
-Neither matters once deployed (Vercel is always HTTPS), but both were needed to test on a phone over the local network during development.
 
 Neither matters once deployed (Vercel is always HTTPS), but both were needed to test on a phone over the local network during development.
 
@@ -260,9 +258,9 @@ By default `DATABASE_URL` is unset and falls back to a local SQLite file (`local
 3. Close the tab (or, on a real device, kill the app entirely).
 4. Trigger a dispatch cycle by calling the endpoint yourself:
    ```bash
-   curl -X POST http://localhost:3000/api/push/dispatch
+   curl -X POST http://localhost:3000/api/push/dispatch -H "Authorization: Bearer <CRON_SECRET>"
    ```
-   In production this is called automatically every minute by cron-job.org (see below).
+   Set `CRON_SECRET` in `.env.local` first — the endpoint refuses to run without it (returns `503`). In production this is called automatically every minute by cron-job.org (see below).
 5. You should get a real system notification; tapping it opens the app to that reminder.
 
 ---
@@ -293,7 +291,7 @@ In Vercel → Settings → Environment Variables → **Production**:
 | `VAPID_PUBLIC_KEY` | from `npx web-push generate-vapid-keys` | **No** `NEXT_PUBLIC_` prefix - see below for why. |
 | `VAPID_PRIVATE_KEY` | from the same command | Keep secret. |
 | `VAPID_SUBJECT` | `mailto:you@example.com` | Must include the `mailto:` prefix - a bare email address fails. |
-| `CRON_SECRET` | any random string, e.g. `openssl rand -base64 18` | Locks down `/api/push/dispatch` so randoms can't trigger it. |
+| `CRON_SECRET` | any random string, e.g. `openssl rand -base64 18` | **Required** — locks down `/api/push/dispatch`. Without it the endpoint refuses to dispatch (returns `503`). Give the same value to cron-job.org's `Authorization` header. |
 
 ### 4. Deploy, and make sure it's a *fresh* deployment
 
@@ -337,7 +335,7 @@ Real issues hit while standing this deployment up, roughly in the order they'd b
 | --- | --- | --- |
 | `next build` fails with `LibsqlError: URL_INVALID: The URL '' is not in a valid format` | `DATABASE_URL` is set in Vercel but empty | Already fixed in code (lazy client + `\|\|` fallback) - if you see this again, check the env var actually has a value. |
 | `/api/push/dispatch` (or any push route) returns a `500` with an **empty body** | An unhandled exception - no error detail without this | Already fixed (`lib/api/withErrors.ts` wraps every route). If you see an empty 500 again on a *new* route, it's not wrapped - apply the same pattern. |
-| `/api/push/dispatch` returns `{"error":"ConnectionFailed(\"Unable to open connection to local database local.db: 14\")"}` | `DATABASE_URL`/`DATABASE_AUTH_TOKEN` (or the `DATABASE_TURSO_*` equivalents) aren't actually set for **Production** | Check Settings → Environment Variables → Production has real (non-empty) values, then redeploy. |
+| `/api/push/dispatch` returns a `500` with `{"error":"internal server error"}` (production) or the full `ConnectionFailed(...)` detail (development) | `DATABASE_URL`/`DATABASE_AUTH_TOKEN` (or the `DATABASE_TURSO_*` equivalents) aren't actually set for **Production** | Check Settings → Environment Variables → Production has real (non-empty) values, then redeploy. |
 | Vercel won't save `NEXT_PUBLIC_VAPID_PUBLIC_KEY` - warns about exposing a public value and asks to remove the prefix or convert to "Config" | Vercel's secret-value heuristic | Not applicable anymore - the app now uses `VAPID_PUBLIC_KEY` (no prefix) instead, precisely to avoid this. |
 | Settings page shows "Enabled" but no subscription ever reaches the server (`push_subscriptions` table stays empty) | `requestNotificationPermissionAndSubscribe()` used to silently return `"ready"` even when subscribing failed | Fixed - it now returns `"not-configured"` on any failure, and Settings independently verifies a real subscription exists rather than trusting `Notification.permission` alone. |
 | `/api/push/dispatch` returns `{"error":"Vapid subject is not a valid URL. you@example.com"}` | `VAPID_SUBJECT` was set to a bare email address | It must be `mailto:you@example.com` (with the prefix) or a full URL. |
@@ -354,13 +352,14 @@ Real issues hit while standing this deployment up, roughly in the order they'd b
 - **Domain logic**: `lib/domain/*` - recurrence math, share-link encode/decode.
 - **Share/import**: the reminder's data is embedded directly in the share link's URL fragment (base64url JSON after `#`), never sent to any server. This fixes a bug in the original Android app, where the share link only worked if the recipient happened to already have the reminder in their own local database.
 - **Push**: `lib/push/client.ts` (subscribe/permission flow), `lib/push/store.ts` + `lib/push/send.ts` (server-only), `app/api/push/*`, `public/sw.js` (service worker: push + notificationclick handlers, plus basic offline app-shell caching).
-- **UI**: brutalist look ported from the original app's Compose theme (`components/Brutal.tsx`, palette in `app/globals.css`), light/dark via `prefers-color-scheme`.
+- **UI**: brutalist look ported from the original app's Compose theme (`components/ui/` shadcn primitives, palette in `app/globals.css`), light/dark via `prefers-color-scheme`.
 
 ## Testing
 
 ```bash
 npm run build   # type-checks + production build
 npm run lint
+npm run test    # unit tests (vitest) for domain logic
 ```
 
 ## License
