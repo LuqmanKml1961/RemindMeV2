@@ -21,17 +21,8 @@ self.addEventListener("install", (event) => {
 });
 
 // Respond to SKIP_WAITING messages from PwaRegister so new deploys take over promptly.
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-  // A client telling us it's freshly loaded with a given URL — used to warm the cache with the
-  // current route's hashed chunks so offline works after the very first visit. No-op by default;
-  // kept as an extension point.
-  if (event.data && event.data.type === "CACHE_URL" && event.data.url) {
-    event.waitUntil(precacheUrl(event.data.url));
-  }
-});
+// (The SKIP_WAITING / CACHE_URL / NOTIFY_* dispatch lives in the message listener below, next to
+// the exact-time local notification machinery.)
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
@@ -127,30 +118,126 @@ self.addEventListener("fetch", (event) => {
 
 // --- Push notifications (the core reason this SW exists) ---
 
+// One shared display path for both server pushes and locally-scheduled exact-time notifications, so
+// both use the same icon/tag/behavior. Sharing the `tag` matters: when the server's ~1-min cron
+// later delivers the same reminder, Chromium replaces this notification in place instead of
+// stacking a duplicate.
+function showReminderNotification({ title, body, reminderId }) {
+  // requireInteraction is only supported in Chromium browsers — using it on iOS/Safari/Firefox
+  // silently breaks the notification or has no effect.
+  const isChromium = /chrome|chromium|edg/i.test(self.navigator.userAgent);
+
+  return self.registration.showNotification(title || "RemindMe", {
+    body: body || "Your reminder is due",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-badge.png",
+    tag: reminderId ? `reminder-${reminderId}` : undefined,
+    data: { reminderId: reminderId ?? null },
+    requireInteraction: isChromium,
+  });
+}
+
 // This fires even if the browser/PWA was fully killed — the OS push service wakes just this
 // service worker to show the notification.
 self.addEventListener("push", (event) => {
   let data = { title: "RemindMe", body: "Your reminder is due", reminderId: null };
   try {
-    if (event.data) data = { ...data, ...event.data.json() };
+    if (event.data) {
+      const json = event.data.json();
+      data = {
+        title: json.title || data.title,
+        body: json.body || data.body,
+        reminderId: json.reminderId != null ? json.reminderId : data.reminderId,
+      };
+    }
   } catch {
     // ignore malformed payloads
   }
+  event.waitUntil(showReminderNotification(data));
+});
 
-  // requireInteraction is only supported in Chromium browsers — using it on iOS/Safari/Firefox
-  // silently breaks the notification or has no effect.
-  const isChromium = /chrome|chromium|edg/i.test(self.navigator.userAgent);
+// --- Exact-time local notifications (background scheduling) ---
+//
+// The app's pages plan upcoming occurrences (lib/notify/plan.ts) and hand them to this SW, which
+// arms a setTimeout per occurrence. This is what makes notifications arrive at the *exact* second
+// instead of waiting for the server's ~1-minute dispatch cron — while the device is awake. When
+// the browser is fully killed the SW timers die too, and the server push covers that case.
+const NOTIFY_HORIZON_MS = 7 * 24 * 60 * 60 * 1000;
+const localNotifiers = new Map(); // reminderId -> [{ at, timerId, payload }]
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-badge.png",
-      tag: data.reminderId ? `reminder-${data.reminderId}` : undefined,
-      data: { reminderId: data.reminderId },
-      requireInteraction: isChromium,
-    })
-  );
+function clearNotifiers(reminderId) {
+  const list = localNotifiers.get(reminderId) ?? [];
+  for (const entry of list) clearTimeout(entry.timerId);
+  localNotifiers.delete(reminderId);
+}
+
+async function fireLocalNotifier(entry) {
+  const list = localNotifiers.get(entry.payload.reminderId) ?? [];
+  localNotifiers.set(entry.payload.reminderId, list.filter((e) => e !== entry));
+
+  try {
+    await showReminderNotification(entry.payload);
+  } catch (err) {
+    console.error("local reminder notification failed", err);
+  }
+
+  // Tell any open page it fired so the client can reconcile the server side — currently it cancels
+  // the one-off server trigger so the ~1-min cron push doesn't surface a second notification.
+  try {
+    const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of clients) {
+      client.postMessage({
+        type: "NOTIFICATION_DISPLAYED",
+        reminderId: entry.payload.reminderId,
+        isRecurring: entry.payload.isRecurring,
+      });
+    }
+  } catch {
+    // ignore — no listening client is fine; the server push handles recurrence anyway.
+  }
+}
+
+function handleNotifySync(data) {
+  const { reminderId } = data;
+  if (!reminderId || !Array.isArray(data.occurrences)) return;
+  clearNotifiers(reminderId);
+
+  const now = Date.now();
+  const list = [];
+  for (const occ of data.occurrences) {
+    const at = typeof occ.at === "number" ? occ.at : Number(new Date(occ.at));
+    if (!Number.isFinite(at) || at <= now || at - now > NOTIFY_HORIZON_MS) continue;
+    const payload = {
+      reminderId,
+      title: typeof occ.title === "string" && occ.title ? occ.title : "RemindMe",
+      body: typeof occ.body === "string" && occ.body ? occ.body : "Your reminder is due",
+      isRecurring: occ.isRecurring === true,
+    };
+    const entry = { at, timerId: null, payload };
+    entry.timerId = setTimeout(() => fireLocalNotifier(entry), at - now);
+    list.push(entry);
+  }
+  localNotifiers.set(reminderId, list);
+}
+
+// Respond to SKIP_WAITING messages from PwaRegister so new deploys take over promptly.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+  // A client telling us it's freshly loaded with a given URL — used to warm the cache with the
+  // current route's hashed chunks so offline works after the very first visit. No-op by default;
+  // kept as an extension point.
+  if (event.data && event.data.type === "CACHE_URL" && event.data.url) {
+    event.waitUntil(precacheUrl(event.data.url));
+  }
+  // Exact-time local scheduling: the page re-plans upcoming occurrences and re-syncs them here.
+  if (event.data && event.data.type === "NOTIFY_SYNC") {
+    handleNotifySync(event.data);
+  }
+  if (event.data && event.data.type === "NOTIFY_CLEAR") {
+    clearNotifiers(event.data.reminderId);
+  }
 });
 
 self.addEventListener("notificationclick", (event) => {

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BottomNav } from "../components/BottomNav";
 import { PwaRegister } from "../components/PwaRegister";
+import { ExactTimeNotifier } from "../components/ExactTimeNotifier";
 import { OfflineBanner } from "../components/OfflineBanner";
 import { ThemeProvider } from "../components/theme-provider";
 import { Toaster } from "../components/ui/sonner";
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full antialiased bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <PwaRegister />
+          <ExactTimeNotifier />
           <OfflineBanner />
           <div className="lg:flex lg:min-h-[100dvh]">
             <BottomNav />

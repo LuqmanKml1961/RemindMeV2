@@ -1,6 +1,7 @@
 // Client-side push subscription + iOS-aware permission flow.
 import { db } from "../db/dexie";
 import { getDeviceId, getPushToken, updatePreferences } from "../db/preferences";
+import { reminderNotificationBody } from "../notify/plan";
 import type { Reminder } from "../domain/types";
 
 export function isStandalone(): boolean {
@@ -117,16 +118,6 @@ export async function requestNotificationPermissionAndSubscribe(): Promise<Notif
   }
 
   return "ready";
-}
-
-function reminderNotificationBody(reminder: Reminder): string {
-  if (reminder.type === "MEDICAL" && reminder.medications.length > 0) {
-    return reminder.medications.map((m) => m.name).join(", ");
-  }
-  if (reminder.type === "MONTHLY" && reminder.amount != null) {
-    return `RM${reminder.amount} due`;
-  }
-  return reminder.description || "Your reminder is due";
 }
 
 // True if the server is guaranteed to be in sync for this reminder. False means it's flagged as

@@ -12,6 +12,16 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
 
+### 2026-09-11 — Exact-time local notifications
+
+Push notifications previously couldn't arrive faster than the server's ~1-minute dispatch cron. Now they fire at the **exact** due-second while your device is awake:
+
+- New client plan + service-worker timer layer (`lib/notify/plan.ts`, `components/ExactTimeNotifier.tsx`, `public/sw.js`): the app hands upcoming due-times to the service worker, which arms a `setTimeout` per occurrence and shows the notification precisely on time — no more up-to-~60s lag.
+- The text/tag/icon are shared with the server push path, so when the ~1-min cron still arrives (or when the browser was killed and no timer survived), the notification **replaces** rather than duplicates.
+- One-off reminders cancel their server trigger once they've fired locally, so the cron push doesn't re-surface the same reminder a minute later.
+- Recurring reminders pre-arm their next occurrences within a 7-day window; the server keeps the chain going from there.
+- The server cron/web-push pipeline is unchanged and still covers the fully-killed-browser case.
+
 ### 2026-09-09 — Bottom nav fixes for iOS and Android (`6854301`, `913003b`, `be009d3`, merged into `main`)
 
 > Fixes two platform-specific bottom-bar issues (pushed commits on `main`; the earlier ones in this list came from the `improve/pwa-perfection` branch).
@@ -65,8 +75,9 @@ So there's a minimal Next.js API + database that stores **only**: your push subs
 
 ## Notifications: what to expect per platform
 
-- **Android (Chrome)**: works after closing the app/tab; the browser's push service wakes the service worker in the background.
-- **iOS (Safari, 16.4+)**: you must **Add to Home Screen** first and open the app from there - regular Safari tabs cannot receive push. Once installed, grant notification permission from inside the app (Settings → Enable Notifications).
+- **While the app/service worker is alive (any platform)**: exact-time delivery. Reminders fire at the precise second they're due via a local service-worker timer, instead of waiting for the server's ~1-minute dispatch cron.
+- **Android (Chrome)**: after you close the app/tab, Chrome keeps the service worker (and its timers) alive in the background, so notifications still arrive near the exact second. If you **force-stop Chrome** (or battery optimization kills it — see Troubleshooting), delivery stops until you reopen the browser; when Chrome comes back, the server push delivers within ~1 minute.
+- **iOS (Safari, 16.4+)**: you must **Add to Home Screen** first and open the app from there - regular Safari tabs cannot receive push. Once installed, grant notification permission from inside the app (Settings → Enable Notifications). When the app is closed, iOS suspends the service-worker timers, so delivery relies on the server push (~1 minute).
 - **Windows/desktop**: works while Chrome is allowed to run in the background. Check Chrome's `chrome://settings/system` → **"Continue running background apps when Google Chrome is closed"** is on, otherwise a fully-quit browser can't receive push.
 
 ---
@@ -333,6 +344,8 @@ Real issues hit while standing this deployment up, roughly in the order they'd b
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
+| Notifications fire late / not at the set time | Server dispatch runs once per minute, and Android battery optimization (Doze) defers or batches push messages | The app now fires exact-time local notifications while awake (see changelog 2026-09-11); for the fully-killed case, set Chrome to **Battery → Unrestricted** and disable **Restrict background data**, and don't force-stop Chrome — swipe it away from Recents instead |
+| No notification at all after force-stopping Chrome / the installed app | Force-stopping (or an aggressive OEM "clear all") blocks the OS push service until the browser is reopened; notifications never fire locally because the browser is dead | Open Chrome again once after force-stopping — if you're not seeing this in normal use, check the battery-optimization row above |
 | `next build` fails with `LibsqlError: URL_INVALID: The URL '' is not in a valid format` | `DATABASE_URL` is set in Vercel but empty | Already fixed in code (lazy client + `\|\|` fallback) - if you see this again, check the env var actually has a value. |
 | `/api/push/dispatch` (or any push route) returns a `500` with an **empty body** | An unhandled exception - no error detail without this | Already fixed (`lib/api/withErrors.ts` wraps every route). If you see an empty 500 again on a *new* route, it's not wrapped - apply the same pattern. |
 | `/api/push/dispatch` returns a `500` with `{"error":"internal server error"}` (production) or the full `ConnectionFailed(...)` detail (development) | `DATABASE_URL`/`DATABASE_AUTH_TOKEN` (or the `DATABASE_TURSO_*` equivalents) aren't actually set for **Production** | Check Settings → Environment Variables → Production has real (non-empty) values, then redeploy. |
