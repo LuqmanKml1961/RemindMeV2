@@ -5,7 +5,7 @@ import type { Reminder, ReminderType } from "./types";
 export type ReminderKind = "ONCE" | "REPEAT" | "MEDICAL" | "MONEY";
 
 export const REMINDER_KINDS: { value: ReminderKind; label: string; description: string }[] = [
-  { value: "ONCE", label: "Once", description: "Alerts one time. Removes itself when you mark it done." },
+  { value: "ONCE", label: "Once", description: "Alerts once. Gone when you mark it done." },
   { value: "REPEAT", label: "Repeat", description: "Daily, weekly, monthly, yearly, or every N days." },
   { value: "MEDICAL", label: "Medical", description: "Medicine or appointments, with a list of medications." },
   { value: "MONEY", label: "Money", description: "Bills and subscriptions, with an amount." },

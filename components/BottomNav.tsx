@@ -1,9 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import { Home, ListChecks, Vault, Settings, BellRing, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Home, ListChecks, Vault, Settings, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -122,9 +123,8 @@ export function BottomNav() {
           )}
         >
           <span className="flex items-center gap-2">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <BellRing className="size-4" />
-            </span>
+            <Image src="/icons/icon-192.png" alt="" width={32} height={32} className="size-8 shrink-0 rounded-lg" />
+
             {!collapsed && <span className="text-base font-semibold tracking-tight">RemindMe</span>}
           </span>
         </div>

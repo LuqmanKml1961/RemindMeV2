@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
 export const alt = "RemindMe — Local-first reminder app";
@@ -9,7 +11,10 @@ export const size = {
 
 export const contentType = "image/png";
 
-export default function OpengraphImage() {
+export default async function OpengraphImage() {
+  const logo = await readFile(join(process.cwd(), "public", "icons", "icon-512.png"));
+  const logoSrc = `data:image/png;base64,${logo.toString("base64")}`;
+
   return new ImageResponse(
     (
       <div
@@ -20,33 +25,16 @@ export default function OpengraphImage() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#f4f2ec",
-          color: "#121212",
+          backgroundColor: "#f7f6f0",
+          color: "#000000",
           fontFamily: "sans-serif",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 180,
-            height: 180,
-            marginBottom: 40,
-            border: "6px solid #121212",
-            backgroundColor: "#121212",
-            color: "#f4f2ec",
-            fontSize: 110,
-            fontWeight: 900,
-          }}
-        >
-          R
-        </div>
-        <div style={{ display: "flex", fontSize: 72, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.02em" }}>
-          RemindMe
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoSrc} alt="" width={200} height={200} style={{ borderRadius: 40, marginBottom: 36 }} />
+        <div style={{ display: "flex", fontSize: 72, fontWeight: 700, letterSpacing: "-0.02em" }}>RemindMe</div>
         <div style={{ display: "flex", fontSize: 30, color: "#636363", marginTop: 16, textAlign: "center" }}>
-          Local-first reminders. No accounts, no cloud.
+          Reminders that reach you — even when the app is closed.
         </div>
       </div>
     ),

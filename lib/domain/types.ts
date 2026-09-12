@@ -40,9 +40,9 @@ export interface Reminder {
 export type VaultCategory = "PEOPLE" | "HOME_VEHICLE" | "PROPERTY";
 
 export const VAULT_CATEGORY_LABELS: Record<VaultCategory, string> = {
-  PEOPLE: "People & Profiles",
+  PEOPLE: "People",
   HOME_VEHICLE: "Home & Vehicle",
-  PROPERTY: "Property & Access",
+  PROPERTY: "Property",
 };
 
 export interface VaultReference {

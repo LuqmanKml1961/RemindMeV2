@@ -20,6 +20,15 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
 
+### 2026-09-13 — Logo, date & time picker, to-do flow (`improve/production-hardening`)
+
+Reviewed every screen as real phone screenshots (iPhone 14 and Pixel 7 profiles, light and dark, via headless Chromium) before and after.
+
+- **Logo**: the "R + clock" mark (`public/logo.svg`) is now the source for every icon. `scripts/generate-icons.mjs` rasterizes it into the manifest icons, maskable variants (mark scaled to 86% so Android's circular mask never clips the legs), `app/apple-icon.png`, the favicon (`app/icon.png`, Next.js file convention — the old `favicon.ico` is gone), and a white-on-transparent status-bar badge cut from the light path. The desktop rail, onboarding hero and OG image use it. Unreferenced `public/icon.png` / `public/icons/apple-touch-icon.png` removed.
+- **Date & time picker** (`components/ui/date-picker.tsx`): the popover with 28 px calendar cells and two 24/60-option `<select>`s is replaced by a shadcn `Dialog`: Today / Tomorrow / In a week chips, a 36 px-cell calendar (past days disabled), a native `<input type="time">` so iOS and Android open their own wheel, and Morning / Noon / Evening / Night chips. Edits live in a draft until **Done**; **Clear** removes the time.
+- **To-do add** follows the Reminder page: a **New** button in the header opens a "New task" dialog (each Add saves and clears so several can be entered in a row). The always-visible "Add a task…" bar, which read as a search field, is gone. Share moved to an icon button beside New.
+- **Polish from the screenshots**: equal-height Kind cards on Create, banner titles that read as sentences ("Notifications are off", "Install to get notifications"), one-row Vault categories (People / Home & Vehicle / Property), 20 px checkboxes on reminder cards and task rows.
+
 ### 2026-09-13 — Onboarding that explains the app (`improve/production-hardening`)
 
 The old intro was a feature list with a "Get Started" button. It is now four short screens with Back / Next / Skip and step dots: **what it is** (Reminder / To-do / Vault, one line each) → **how to create one** (the four kinds, as cards) → **how to share** (WhatsApp, copy, any app) → **get notified** (the notification step from the trust pass). Skip jumps to the notification step rather than past it. Replayable from Settings → "Replay Guide".

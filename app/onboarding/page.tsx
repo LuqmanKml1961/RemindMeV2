@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updatePreferences } from "../../lib/db/preferences";
@@ -84,6 +85,7 @@ export default function OnboardingPage() {
         {step === "what" && (
           <div className="flex flex-col gap-6">
             <div className="space-y-2 py-2 text-center">
+              <Image src="/icons/icon-192.png" alt="RemindMe" width={80} height={80} priority className="mx-auto mb-3 size-20 rounded-2xl" />
               <h1 className="text-3xl font-semibold tracking-tight">RemindMe</h1>
               <p className="text-muted-foreground">Reminders that reach you — even when the app is closed.</p>
             </div>

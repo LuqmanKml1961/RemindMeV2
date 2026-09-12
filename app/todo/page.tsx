@@ -11,7 +11,9 @@ import type { Reminder, TodoItem } from "../../lib/domain/types";
 import { buildTodoListShareLink, buildTodoListShareText } from "../../lib/domain/share";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import { Checkbox } from "../../components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { PageTransition } from "../../components/PageTransition";
 import { ShareDialog } from "../../components/ShareDialog";
 import { BellPlus, BellRing, Check, CheckCircle2, Pencil, Plus, Share, Trash2, X } from "lucide-react";
@@ -38,7 +40,7 @@ function TodoRow({ todo, reminder, editing, editingText, onEditingTextChange, on
         todo.isCompleted && "opacity-60"
       )}
     >
-      <Checkbox checked={todo.isCompleted} onCheckedChange={onToggle} aria-label="Mark done" />
+      <Checkbox checked={todo.isCompleted} onCheckedChange={onToggle} aria-label="Mark done" className="size-5" />
       <div className="min-w-0 flex-1">
         {editing ? (
           <Input
@@ -104,6 +106,7 @@ export default function TodoPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const todos = useLiveQuery(() => db.todos.orderBy("createdAt").reverse().toArray(), [], []);
 
   // Linked reminders, looked up in one query so each row can show its alert time.
@@ -124,6 +127,7 @@ export default function TodoPage() {
     try {
       await createTodo(text.trim());
       setText("");
+      toast.success("Task added");
     } catch (err) {
       console.error("Failed to add todo", err);
       toast.error("Couldn't add the to-do. Please try again.");
@@ -196,10 +200,40 @@ export default function TodoPage() {
               A checklist. No alerts unless you tap <BellPlus className="inline size-3.5 align-text-bottom" /> to add a reminder to a task.
             </p>
           </div>
-          <Button variant="outline" onClick={() => setShareOpen(true)} disabled={pending.length === 0}>
-            <Share /> Share list
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            <Button variant="outline" size="icon" aria-label="Share list" onClick={() => setShareOpen(true)} disabled={pending.length === 0}>
+              <Share />
+            </Button>
+            <Button onClick={() => setAddOpen(true)}>
+              <Plus /> New
+            </Button>
+          </div>
         </div>
+
+        {addOpen && (
+          <Dialog open onOpenChange={(open) => !open && setAddOpen(false)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>New task</DialogTitle>
+                <DialogDescription>Each Add saves the task and clears the box, so you can add several in a row.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleAdd} className="flex flex-col gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="todo-text">Task</Label>
+                  <Input id="todo-text" value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. Buy milk" autoFocus />
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
+                    Done
+                  </Button>
+                  <Button type="submit" disabled={!text.trim()}>
+                    <Plus /> Add
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {shareOpen && (
           <ShareDialog
@@ -212,18 +246,12 @@ export default function TodoPage() {
           />
         )}
 
-        <form onSubmit={handleAdd} className="flex gap-2">
-          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a task..." />
-          <Button type="submit" disabled={!text.trim()}>
-            <Plus /> Add
-          </Button>
-        </form>
-
         <div className="grid gap-2 sm:grid-cols-2 sm:auto-rows-fr">{pending.map(renderRow)}</div>
         {pending.length === 0 && (
-          <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
-            Nothing to do. Nice.
-          </p>
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">
+            <p>Nothing to do. Nice.</p>
+            <p>Tap “New” to add a task.</p>
+          </div>
         )}
 
         {done.length > 0 && (

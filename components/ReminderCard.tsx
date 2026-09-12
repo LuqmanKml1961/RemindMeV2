@@ -107,7 +107,7 @@ export function ReminderCard({ reminder }: { reminder: Reminder }) {
         <Checkbox
           checked={reminder.isCompleted}
           onCheckedChange={(c) => handleToggleCompleted(c === true)}
-          className="mt-1 shrink-0"
+          className="mt-1 size-5 shrink-0"
           aria-label="Mark completed"
         />
       </div>

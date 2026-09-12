@@ -185,7 +185,7 @@ function CreateReminderForm() {
 
         <div className="flex flex-col gap-1.5">
           <Label>Kind</Label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid auto-rows-fr grid-cols-2 gap-2">
             {REMINDER_KINDS.map((k) => {
               const Icon = KIND_ICON[k.value];
               const active = kind === k.value;
@@ -195,7 +195,7 @@ function CreateReminderForm() {
                   type="button"
                   variant={active ? "default" : "outline"}
                   aria-pressed={active}
-                  className="h-auto flex-col items-start gap-1 px-3 py-2.5 text-left whitespace-normal"
+                  className="h-full flex-col items-start justify-start gap-1 px-3 py-2.5 text-left whitespace-normal"
                   onClick={() => selectKind(k.value)}
                 >
                   <span className="flex items-center gap-1.5 font-medium">
