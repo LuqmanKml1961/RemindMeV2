@@ -38,6 +38,9 @@ yarn-error.log*
 *.db
 *.db-journal
 
+# generated from sw/sw.js by scripts/build-sw.mjs (build version stamped in)
+/public/sw.js
+
 # vercel
 .vercel
 

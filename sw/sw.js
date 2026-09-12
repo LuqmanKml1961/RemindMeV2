@@ -1,5 +1,9 @@
-const CACHE_NAME = "remindme-shell-v5";
-const ASSET_CACHE = "remindme-assets-v3";
+// Stamped by scripts/build-sw.mjs. A new value per deploy makes this file byte-different, which
+// is what triggers the browser to install the update; the cache names follow so activate() drops
+// every cache from the previous build.
+const BUILD_VERSION = "__BUILD_VERSION__";
+const CACHE_NAME = `remindme-shell-${BUILD_VERSION}`;
+const ASSET_CACHE = `remindme-assets-${BUILD_VERSION}`;
 const OFFLINE_URL = "/offline";
 
 // Pre-cached on install. Crucially these are served cache-first from the SW on every navigation
