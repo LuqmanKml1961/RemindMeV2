@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeShareFragment, encodeShareFragment } from "../lib/domain/share";
+import { decodeShareFragment, decodeSharedContent, encodeShareFragment, encodeTodoListFragment } from "../lib/domain/share";
 import type { Reminder } from "../lib/domain/types";
 
 function makeReminder(overrides: Partial<Reminder> = {}): Reminder {
@@ -91,5 +91,30 @@ describe("decodeShareFragment normalization", () => {
       JSON.stringify({ title: "x", type: "GENERAL", dueDate: "not-a-date" })
     ).toString("base64url");
     expect(decodeShareFragment(payload)?.dueDate).toBeNull();
+  });
+});
+
+describe("decodeSharedContent", () => {
+  it("round-trips a to-do list", () => {
+    const decoded = decodeSharedContent(encodeTodoListFragment("Groceries", ["Milk", "Eggs"]));
+    expect(decoded).toEqual({ kind: "todo", payload: { kind: "todo", title: "Groceries", items: ["Milk", "Eggs"] } });
+  });
+
+  it("still decodes legacy reminder links that carry no kind", () => {
+    const decoded = decodeSharedContent(encodeShareFragment(makeReminder()));
+    expect(decoded?.kind).toBe("reminder");
+    if (decoded?.kind === "reminder") expect(decoded.payload.title).toBe("Pay electricity");
+  });
+
+  it("drops blank items and rejects an empty list", () => {
+    const payload = Buffer.from(JSON.stringify({ kind: "todo", items: ["  Milk ", "", 42, null] })).toString("base64url");
+    expect(decodeSharedContent(payload)).toEqual({ kind: "todo", payload: { kind: "todo", title: "", items: ["Milk"] } });
+    const empty = Buffer.from(JSON.stringify({ kind: "todo", items: ["", "  "] })).toString("base64url");
+    expect(decodeSharedContent(empty)).toBeNull();
+  });
+
+  it("rejects garbage", () => {
+    expect(decodeSharedContent("not-valid")).toBeNull();
+    expect(decodeSharedContent("")).toBeNull();
   });
 });

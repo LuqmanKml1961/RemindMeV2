@@ -36,3 +36,18 @@ export async function toggleTodo(todo: TodoItem): Promise<void> {
 export async function linkTodoToReminder(todoId: string, reminderId: string): Promise<void> {
   await db.todos.update(todoId, { reminderId });
 }
+
+// The list is displayed newest-first, so timestamps step backwards to keep the shared order.
+export async function importTodoList(items: string[]): Promise<number> {
+  const base = Date.now();
+  const todos: TodoItem[] = items.map((text, index) => ({
+    id: newId(),
+    text,
+    isCompleted: false,
+    priority: 0,
+    reminderId: null,
+    createdAt: new Date(base - index).toISOString(),
+  }));
+  await db.todos.bulkAdd(todos);
+  return todos.length;
+}

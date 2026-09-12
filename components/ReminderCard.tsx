@@ -8,6 +8,7 @@ import type { Reminder } from "../lib/domain/types";
 import { deleteReminder, setCompleted } from "../lib/db/reminders";
 import { recurrenceLabel } from "../lib/domain/recurrence";
 import { kindLabel, reminderKind } from "../lib/domain/kind";
+import { buildShareLink, buildShareText } from "../lib/domain/share";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
@@ -123,7 +124,16 @@ export function ReminderCard({ reminder }: { reminder: Reminder }) {
         </Button>
       </div>
 
-      {shareOpen && <ShareDialog reminder={reminder} onClose={() => setShareOpen(false)} />}
+      {shareOpen && (
+        <ShareDialog
+          title="Share reminder"
+          description={`Send "${reminder.title}" to someone. They tap the link to add it to their own RemindMe — no account needed.`}
+          shareTitle={`RemindMe: ${reminder.title}`}
+          shareText={buildShareText(reminder)}
+          shareLink={buildShareLink(reminder)}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </Card>
   );
 }

@@ -8,11 +8,13 @@ import { toast } from "sonner";
 import { db } from "../../lib/db/dexie";
 import { createTodo, deleteTodo, toggleTodo, updateTodo } from "../../lib/db/todos";
 import type { Reminder, TodoItem } from "../../lib/domain/types";
+import { buildTodoListShareLink, buildTodoListShareText } from "../../lib/domain/share";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Checkbox } from "../../components/ui/checkbox";
 import { PageTransition } from "../../components/PageTransition";
-import { BellPlus, BellRing, Check, CheckCircle2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ShareDialog } from "../../components/ShareDialog";
+import { BellPlus, BellRing, Check, CheckCircle2, Pencil, Plus, Share, Trash2, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 interface TodoRowProps {
@@ -101,6 +103,7 @@ export default function TodoPage() {
   const [text, setText] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [shareOpen, setShareOpen] = useState(false);
   const todos = useLiveQuery(() => db.todos.orderBy("createdAt").reverse().toArray(), [], []);
 
   // Linked reminders, looked up in one query so each row can show its alert time.
@@ -181,16 +184,33 @@ export default function TodoPage() {
 
   const pending = todos?.filter((t) => !t.isCompleted) ?? [];
   const done = todos?.filter((t) => t.isCompleted) ?? [];
+  const pendingTexts = pending.map((t) => t.text);
 
   return (
     <PageTransition>
       <div className="flex flex-col gap-5">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">To-do</h1>
-          <p className="text-sm text-muted-foreground">
-            A checklist. No alerts unless you tap <BellPlus className="inline size-3.5 align-text-bottom" /> to add a reminder to a task.
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">To-do</h1>
+            <p className="text-sm text-muted-foreground">
+              A checklist. No alerts unless you tap <BellPlus className="inline size-3.5 align-text-bottom" /> to add a reminder to a task.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => setShareOpen(true)} disabled={pending.length === 0}>
+            <Share /> Share list
+          </Button>
         </div>
+
+        {shareOpen && (
+          <ShareDialog
+            title="Share to-do list"
+            description={`Send your ${pending.length} open task${pending.length === 1 ? "" : "s"} to someone. They tap the link to add them to their own To-do.`}
+            shareTitle="RemindMe to-do list"
+            shareText={buildTodoListShareText("", pendingTexts)}
+            shareLink={buildTodoListShareLink("", pendingTexts)}
+            onClose={() => setShareOpen(false)}
+          />
+        )}
 
         <form onSubmit={handleAdd} className="flex gap-2">
           <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a task..." />

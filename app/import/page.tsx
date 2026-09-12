@@ -9,16 +9,18 @@ import { Card, CardContent } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { PageTransition } from "../../components/PageTransition";
 import { importReminder } from "../../lib/db/reminders";
-import { decodeShareFragment, type SharePayload } from "../../lib/domain/share";
+import { importTodoList } from "../../lib/db/todos";
+import { decodeSharedContent, type SharedContent } from "../../lib/domain/share";
 import { recurrenceLabel } from "../../lib/domain/recurrence";
-import { ArrowLeft, Download, CheckCircle2, Repeat } from "lucide-react";
+import { kindLabel, reminderKind } from "../../lib/domain/kind";
+import { ArrowLeft, Download, CheckCircle2, Repeat, Square } from "lucide-react";
 
 function subscribeToHash(callback: () => void) {
   window.addEventListener("hashchange", callback);
   return () => window.removeEventListener("hashchange", callback);
 }
 
-function useSharePayload(): SharePayload | null | undefined {
+function useSharedContent(): SharedContent | null | undefined {
   const hash = useSyncExternalStore(
     subscribeToHash,
     () => window.location.hash,
@@ -26,24 +28,25 @@ function useSharePayload(): SharePayload | null | undefined {
   );
   if (hash === undefined) return undefined;
   const fragment = hash.replace(/^#/, "");
-  return fragment ? decodeShareFragment(fragment) : null;
+  return fragment ? decodeSharedContent(fragment) : null;
 }
 
 export default function ImportPage() {
   const router = useRouter();
-  const payload = useSharePayload();
+  const shared = useSharedContent();
   const [imported, setImported] = useState(false);
   const [importing, setImporting] = useState(false);
 
   async function handleImport() {
-    if (!payload || importing) return;
+    if (!shared || importing) return;
     setImporting(true);
     try {
-      await importReminder(payload);
+      if (shared.kind === "reminder") await importReminder(shared.payload);
+      else await importTodoList(shared.payload.items);
     } catch (err) {
-      console.error("Failed to import reminder", err);
+      console.error("Failed to import", err);
       setImporting(false);
-      toast.error("Couldn't import this reminder. Please try again.");
+      toast.error("Couldn't import this. Please try again.");
       return;
     }
     // Drop the fragment so a refresh doesn't import the same link a second time.
@@ -51,9 +54,9 @@ export default function ImportPage() {
     setImported(true);
   }
 
-  if (payload === undefined) return null;
+  if (shared === undefined) return null;
 
-  if (payload === null) {
+  if (shared === null) {
     return (
       <PageTransition>
         <div className="flex flex-col gap-4 py-8">
@@ -67,6 +70,8 @@ export default function ImportPage() {
     );
   }
 
+  const isTodo = shared.kind === "todo";
+
   if (imported) {
     return (
       <PageTransition>
@@ -75,9 +80,13 @@ export default function ImportPage() {
             <CheckCircle2 className="size-7" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">Imported!</h1>
-          <p className="text-sm text-muted-foreground">&quot;{payload.title}&quot; has been added to your reminders.</p>
-          <Button className="mt-2" onClick={() => router.push("/", { transitionTypes: ["nav-forward"] })}>
-            Go to RemindMe
+          <p className="text-sm text-muted-foreground">
+            {isTodo
+              ? `${shared.payload.items.length} task${shared.payload.items.length === 1 ? "" : "s"} added to your To-do.`
+              : `"${shared.payload.title}" has been added to your reminders.`}
+          </p>
+          <Button className="mt-2" onClick={() => router.push(isTodo ? "/todo" : "/", { transitionTypes: ["nav-forward"] })}>
+            {isTodo ? "Go to To-do" : "Go to RemindMe"}
           </Button>
         </div>
       </PageTransition>
@@ -87,39 +96,57 @@ export default function ImportPage() {
   return (
     <PageTransition>
       <div className="flex flex-col gap-4 py-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Import Reminder</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{isTodo ? "Import To-do List" : "Import Reminder"}</h1>
         <Card>
           <CardContent>
-            <div className="mb-1.5">
-              <Badge variant="secondary">{payload.type.toLowerCase()}</Badge>
-            </div>
-            <p className="font-medium">{payload.title}</p>
-            {payload.description && <p className="mt-1 text-sm text-muted-foreground">{payload.description}</p>}
-            {payload.type === "MEDICAL" &&
-              payload.medications.map((med) => (
-                <p key={med.id} className="mt-2 text-sm text-muted-foreground">
-                  {med.name}
-                  {med.dosage ? ` — ${med.dosage}` : ""}
-                </p>
-              ))}
-            {payload.type === "MONTHLY" && payload.amount != null && (
-              <p className="mt-2 text-sm font-semibold text-blue-500">RM{payload.amount.toFixed(2)}</p>
-            )}
-            {payload.dueDate && (
-              <p className="mt-2 text-xs font-medium text-muted-foreground">
-                {format(new Date(payload.dueDate), "d MMM, h:mm a")}
-              </p>
-            )}
-            {payload.recurrence && (
-              <p className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                <Repeat className="size-3" />
-                {recurrenceLabel(payload.recurrence)}
-              </p>
+            {shared.kind === "todo" ? (
+              <>
+                {shared.payload.title && <p className="mb-2 font-medium">{shared.payload.title}</p>}
+                <ul className="space-y-1.5 text-sm">
+                  {shared.payload.items.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <Square className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <>
+                <div className="mb-1.5">
+                  <Badge variant="secondary">{kindLabel(reminderKind(shared.payload))}</Badge>
+                </div>
+                <p className="font-medium">{shared.payload.title}</p>
+                {shared.payload.description && <p className="mt-1 text-sm text-muted-foreground">{shared.payload.description}</p>}
+                {shared.payload.type === "MEDICAL" &&
+                  shared.payload.medications.map((med) => (
+                    <p key={med.id} className="mt-2 text-sm text-muted-foreground">
+                      {med.name}
+                      {med.dosage ? ` — ${med.dosage}` : ""}
+                    </p>
+                  ))}
+                {shared.payload.type === "MONTHLY" && shared.payload.amount != null && (
+                  <p className="mt-2 text-sm font-semibold text-blue-500">RM{shared.payload.amount.toFixed(2)}</p>
+                )}
+                {shared.payload.dueDate && (
+                  <p className="mt-2 text-xs font-medium text-muted-foreground">
+                    {format(new Date(shared.payload.dueDate), "d MMM, h:mm a")}
+                  </p>
+                )}
+                {shared.payload.recurrence && (
+                  <p className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                    <Repeat className="size-3" />
+                    {recurrenceLabel(shared.payload.recurrence)}
+                  </p>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
         <p className="text-xs text-muted-foreground">
-          This reminder was shared with you. Importing adds it to your device only.
+          {isTodo
+            ? "This list was shared with you. Importing adds the tasks to your device only."
+            : "This reminder was shared with you. Importing adds it to your device only."}
         </p>
         <Button className="w-full" onClick={handleImport} disabled={importing}>
           <Download /> {importing ? "Importing..." : "Import"}

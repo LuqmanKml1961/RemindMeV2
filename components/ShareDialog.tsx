@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Reminder } from "../lib/domain/types";
-import { buildShareLink, buildShareText } from "../lib/domain/share";
+import { Copy, MessageCircle, Share } from "lucide-react";
 import { copyToClipboard } from "../lib/clipboard";
 import { Button } from "./ui/button";
 import {
@@ -14,10 +13,21 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 
-export function ShareDialog({ reminder, onClose }: { reminder: Reminder; onClose: () => void }) {
+interface ShareDialogProps {
+  title: string;
+  description: string;
+  shareTitle: string;
+  shareText: string;
+  shareLink: string;
+  onClose: () => void;
+}
+
+// One share surface for reminders and to-do lists. WhatsApp gets its own button because it's the
+// way most people here pass things on; the native share sheet covers everything else on mobile.
+export function ShareDialog({ title, description, shareTitle, shareText, shareLink, onClose }: ShareDialogProps) {
   const [copied, setCopied] = useState(false);
-  const shareText = buildShareText(reminder);
-  const shareLink = buildShareLink(reminder);
+  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
 
   async function copyLink() {
     const ok = await copyToClipboard(shareText);
@@ -28,16 +38,11 @@ export function ShareDialog({ reminder, onClose }: { reminder: Reminder; onClose
   }
 
   async function shareViaApps() {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: `RemindMe: ${reminder.title}`, text: shareText, url: shareLink });
-        onClose();
-        return;
-      } catch {
-        // user cancelled — fall through
-      }
-    } else {
-      await copyLink();
+    try {
+      await navigator.share({ title: shareTitle, text: shareText, url: shareLink });
+      onClose();
+    } catch {
+      // user cancelled the share sheet — keep the dialog open
     }
   }
 
@@ -45,19 +50,23 @@ export function ShareDialog({ reminder, onClose }: { reminder: Reminder; onClose
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Share Reminder</DialogTitle>
-          <DialogDescription>
-            Share &quot;{reminder.title}&quot; with others. They can import it into RemindMe via the link — no
-            account needed.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" className="flex-1" onClick={copyLink}>
-            {copied ? "Copied!" : "Copy Link"}
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          <Button className="w-full" render={<a href={whatsappHref} target="_blank" rel="noreferrer" onClick={onClose} />}>
+            <MessageCircle /> Send on WhatsApp
           </Button>
-          <Button className="flex-1" onClick={shareViaApps}>
-            Share
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={copyLink}>
+              <Copy /> {copied ? "Copied!" : "Copy"}
+            </Button>
+            {canNativeShare && (
+              <Button variant="outline" className="flex-1" onClick={shareViaApps}>
+                <Share /> Other apps
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

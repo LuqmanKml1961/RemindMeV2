@@ -1,6 +1,6 @@
 // Share/import — improvement over the Kotlin app's ShareReminderUseCase, which looked up the
 // shared reminder by shareId in the recipient's own local Room DB (only works on the same device).
-// Here the reminder data itself travels in the URL fragment (never sent to any server), so import
+// Here the shared data itself travels in the URL fragment (never sent to any server), so import
 // works cross-device with no backend involvement.
 import { format } from "date-fns";
 import { recurrenceLabel } from "./recurrence";
@@ -17,6 +17,17 @@ export interface SharePayload {
   recurrence: Reminder["recurrence"];
 }
 
+export interface TodoListPayload {
+  kind: "todo";
+  title: string;
+  items: string[];
+}
+
+export type SharedContent = { kind: "reminder"; payload: SharePayload } | { kind: "todo"; payload: TodoListPayload };
+
+// Keeps a shared list's URL within what messaging apps reliably pass through.
+const MAX_TODO_ITEMS = 200;
+
 function toBase64Url(json: string): string {
   const bytes = new TextEncoder().encode(json);
   let binary = "";
@@ -31,6 +42,18 @@ function fromBase64Url(value: string): string {
   return new TextDecoder().decode(bytes);
 }
 
+function parseFragment(fragment: string): unknown {
+  try {
+    return JSON.parse(fromBase64Url(fragment));
+  } catch {
+    return null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 export function encodeShareFragment(reminder: Reminder): string {
   const payload: SharePayload = {
     title: reminder.title,
@@ -41,6 +64,11 @@ export function encodeShareFragment(reminder: Reminder): string {
     amount: reminder.amount,
     recurrence: reminder.recurrence,
   };
+  return toBase64Url(JSON.stringify(payload));
+}
+
+export function encodeTodoListFragment(title: string, items: string[]): string {
+  const payload: TodoListPayload = { kind: "todo", title, items: items.slice(0, MAX_TODO_ITEMS) };
   return toBase64Url(JSON.stringify(payload));
 }
 
@@ -84,35 +112,59 @@ function normalizeRecurrence(value: unknown): RecurrenceRule | null {
   };
 }
 
-export function decodeShareFragment(fragment: string): SharePayload | null {
-  try {
-    const parsed = JSON.parse(fromBase64Url(fragment)) as Record<string, unknown>;
-    if (parsed === null || typeof parsed !== "object") return null;
-    if (typeof parsed.title !== "string" || !parsed.title.trim()) return null;
-    if (typeof parsed.type !== "string" || !REMINDER_TYPES.has(parsed.type)) return null;
+function normalizeReminder(parsed: unknown): SharePayload | null {
+  if (!isRecord(parsed)) return null;
+  if (typeof parsed.title !== "string" || !parsed.title.trim()) return null;
+  if (typeof parsed.type !== "string" || !REMINDER_TYPES.has(parsed.type)) return null;
 
-    let dueDate: string | null = null;
-    if (typeof parsed.dueDate === "string" && !Number.isNaN(new Date(parsed.dueDate).getTime())) {
-      dueDate = parsed.dueDate;
-    }
-
-    return {
-      title: parsed.title,
-      description: typeof parsed.description === "string" ? parsed.description : "",
-      type: parsed.type as ReminderType,
-      dueDate,
-      medications: normalizeMedications(parsed.medications),
-      amount: normalizeAmount(parsed.amount),
-      recurrence: normalizeRecurrence(parsed.recurrence),
-    };
-  } catch {
-    return null;
+  let dueDate: string | null = null;
+  if (typeof parsed.dueDate === "string" && !Number.isNaN(new Date(parsed.dueDate).getTime())) {
+    dueDate = parsed.dueDate;
   }
+
+  return {
+    title: parsed.title,
+    description: typeof parsed.description === "string" ? parsed.description : "",
+    type: parsed.type as ReminderType,
+    dueDate,
+    medications: normalizeMedications(parsed.medications),
+    amount: normalizeAmount(parsed.amount),
+    recurrence: normalizeRecurrence(parsed.recurrence),
+  };
+}
+
+function normalizeTodoList(parsed: Record<string, unknown>): TodoListPayload | null {
+  if (!Array.isArray(parsed.items)) return null;
+  const items = parsed.items
+    .filter((item): item is string => typeof item === "string" && item.trim() !== "")
+    .map((item) => item.trim())
+    .slice(0, MAX_TODO_ITEMS);
+  if (items.length === 0) return null;
+  return { kind: "todo", title: typeof parsed.title === "string" ? parsed.title.trim() : "", items };
+}
+
+export function decodeShareFragment(fragment: string): SharePayload | null {
+  return normalizeReminder(parseFragment(fragment));
+}
+
+// Reminder links predate the `kind` field, so anything without `kind: "todo"` is a reminder.
+export function decodeSharedContent(fragment: string): SharedContent | null {
+  const parsed = parseFragment(fragment);
+  if (isRecord(parsed) && parsed.kind === "todo") {
+    const payload = normalizeTodoList(parsed);
+    return payload ? { kind: "todo", payload } : null;
+  }
+  const payload = normalizeReminder(parsed);
+  return payload ? { kind: "reminder", payload } : null;
+}
+
+function importLink(fragment: string): string {
+  if (typeof window === "undefined") return "";
+  return `${window.location.origin}/import#${fragment}`;
 }
 
 export function buildShareLink(reminder: Reminder): string {
-  if (typeof window === "undefined") return "";
-  return `${window.location.origin}/import#${encodeShareFragment(reminder)}`;
+  return importLink(encodeShareFragment(reminder));
 }
 
 export function buildShareText(reminder: Reminder): string {
@@ -132,6 +184,17 @@ export function buildShareText(reminder: Reminder): string {
     if (!Number.isNaN(due.getTime())) lines.push(`Due: ${format(due, "d MMM, h:mm a")}`);
   }
   const link = buildShareLink(reminder);
+  if (link) lines.push(`Tap to import: ${link}`);
+  return lines.join("\n");
+}
+
+export function buildTodoListShareLink(title: string, items: string[]): string {
+  return importLink(encodeTodoListFragment(title, items));
+}
+
+export function buildTodoListShareText(title: string, items: string[]): string {
+  const lines = [`RemindMe to-do: ${title || "To-do list"}`, ...items.slice(0, MAX_TODO_ITEMS).map((item) => `☐ ${item}`)];
+  const link = buildTodoListShareLink(title, items);
   if (link) lines.push(`Tap to import: ${link}`);
   return lines.join("\n");
 }

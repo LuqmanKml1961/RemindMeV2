@@ -12,6 +12,12 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
 
+### 2026-09-13 — Share reminders *and* to-do lists (`improve/production-hardening`)
+
+- **Share a to-do list**: the To-do page has a "Share list" button that sends every open task as one link. The recipient previews the list on `/import` and adds the tasks to their own To-do — the "my mother is away next week, here's the list" case.
+- **Same link format, backwards compatible**: list links carry `kind: "todo"` in the fragment; reminder links (which predate it) carry no `kind` and keep working. `decodeSharedContent()` in `lib/domain/share.ts` dispatches between the two.
+- **WhatsApp first**: the share dialog (`components/ShareDialog.tsx`, now shared by reminders and lists) leads with "Send on WhatsApp" (`wa.me/?text=…`), then Copy, then the native share sheet where the browser has one.
+
 ### 2026-09-13 — Back to the root: clear kinds, clear links (`improve/production-hardening`)
 
 The three features now each answer one question — **Reminder**: "alert me at a time"; **To-do**: "a checklist, alerts optional"; **Vault**: "things I want to remember, no alerts" — and the UI says so.
