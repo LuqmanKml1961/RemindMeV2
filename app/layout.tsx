@@ -5,6 +5,7 @@ import { PwaRegister } from "../components/PwaRegister";
 import { ExactTimeNotifier } from "../components/ExactTimeNotifier";
 import { OfflineBanner } from "../components/OfflineBanner";
 import { ThemeProvider } from "../components/theme-provider";
+import { ThemeColor } from "../components/ThemeColor";
 import { Toaster } from "../components/ui/sonner";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
@@ -54,10 +55,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#faf9f7" },
-    { media: "(prefers-color-scheme: dark)", color: "#0c0b09" },
-  ],
+  // Light value for the first paint; components/ThemeColor.tsx updates it to the resolved theme.
+  themeColor: "#faf9f7",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -68,6 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={cn("h-full", "font-sans", geist.variable)} suppressHydrationWarning>
       <body className="min-h-full antialiased bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <ThemeColor />
           <PwaRegister />
           <ExactTimeNotifier />
           <OfflineBanner />

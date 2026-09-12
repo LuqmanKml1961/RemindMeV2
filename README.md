@@ -20,6 +20,10 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
 
+### 2026-09-13 — Status bar that matches the app
+
+In standalone mode Android paints the status bar with `theme_color`, which was `#0c0b09` — a black strip over a light app. Now the manifest is light-first (`theme_color` / `background_color` `#faf9f7`, so the launch frame and splash match the light app) and `components/ThemeColor.tsx` keeps a single `<meta name="theme-color">` equal to the resolved theme's background (`#faf9f7` light, `#0c0b09` dark), so the status bar follows the app in both modes and when the user flips the switch in Settings. The media-query pair of theme-color tags is gone — it wasn't being honoured on device.
+
 ### 2026-09-13 — Status bar back, icons that actually update
 
 - **`display: "standalone"`** (was `fullscreen`). On Android, `fullscreen` takes the whole screen *including* the status bar — no clock, battery or signal while the app is open. `standalone` keeps the status bar (tinted with `theme_color`) and still hides all browser UI. Layout was already safe-area aware, so nothing else moved.
