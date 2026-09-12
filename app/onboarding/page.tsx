@@ -4,23 +4,55 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updatePreferences } from "../../lib/db/preferences";
+import { REMINDER_KINDS, type ReminderKind } from "../../lib/domain/kind";
 import { Button } from "../../components/ui/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { Card, CardContent } from "../../components/ui/card";
 import { NotificationSetup } from "../../components/NotificationSetup";
 import { PageTransition } from "../../components/PageTransition";
-import { Bell, Pill, Wallet, Shield, Share2 } from "lucide-react";
+import { cn } from "../../lib/utils";
+import { ArrowLeft, ArrowRight, Bell, BellRing, ListChecks, MessageCircle, Pill, Plus, Repeat, Share2, Vault, Wallet } from "lucide-react";
 
-const FEATURES = [
-  ["Time-based reminders", "Quick presets or a custom date & time. Repeat daily, weekly, monthly, yearly, or every N days.", Bell],
-  ["Medical & health", "One entry can hold multiple medications, each with dosage and instructions.", Pill],
-  ["Monthly bills", "Track an amount (RM) alongside the reminder.", Wallet],
-  ["Vault", "A quiet, searchable home for people, home & vehicle, and property details. No notifications, ever.", Shield],
-  ["Share & import", "Share any reminder as a link — the recipient imports it instantly, on any device.", Share2],
-] as const;
+const STEPS = ["what", "create", "share", "notifications"] as const;
+type Step = (typeof STEPS)[number];
+
+const KIND_ICON: Record<ReminderKind, typeof Bell> = {
+  ONCE: Bell,
+  REPEAT: Repeat,
+  MEDICAL: Pill,
+  MONEY: Wallet,
+};
+
+function StepDots({ current }: { current: number }) {
+  return (
+    <div className="flex justify-center gap-1.5" aria-label={`Step ${current + 1} of ${STEPS.length}`}>
+      {STEPS.map((step, index) => (
+        <span
+          key={step}
+          className={cn("h-1.5 rounded-full transition-all", index === current ? "w-6 bg-primary" : "w-1.5 bg-muted-foreground/30")}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FeatureRow({ icon: Icon, title, body }: { icon: typeof Bell; title: string; body: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <Icon className="size-4" />
+      </div>
+      <div>
+        <p className="font-medium">{title}</p>
+        <p className="text-sm text-muted-foreground">{body}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState<"tour" | "notifications">("tour");
+  const [index, setIndex] = useState(0);
+  const step: Step = STEPS[index];
 
   async function finish() {
     try {
@@ -33,49 +65,106 @@ export default function OnboardingPage() {
     router.replace("/", { transitionTypes: ["nav-forward"] });
   }
 
-  if (step === "notifications") {
-    return (
-      <PageTransition>
-        <div className="flex flex-col gap-6">
-          <div className="space-y-2 py-4 text-center">
-            <h1 className="text-3xl font-semibold tracking-tight">Get notified</h1>
-            <p className="text-muted-foreground">
-              Reminders can alert you even when the app is closed. Turn that on now, or skip and do it later in Settings.
-            </p>
-          </div>
-          <NotificationSetup onContinue={finish} />
-        </div>
-      </PageTransition>
-    );
-  }
+  const next = () => setIndex((i) => Math.min(i + 1, STEPS.length - 1));
+  const back = () => setIndex((i) => Math.max(i - 1, 0));
+  const skipToNotifications = () => setIndex(STEPS.length - 1);
 
   return (
     <PageTransition>
-      <div className="flex flex-col gap-6">
-        <div className="space-y-2 py-4 text-center">
-          <h1 className="text-3xl font-semibold tracking-tight">RemindMe</h1>
-          <p className="text-muted-foreground">Local-first. No accounts, no cloud. Everything stays on your device.</p>
+      <div className="flex min-h-[70vh] flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <StepDots current={index} />
+          {step !== "notifications" && (
+            <Button variant="ghost" size="sm" onClick={skipToNotifications}>
+              Skip
+            </Button>
+          )}
         </div>
 
-        <div className="flex flex-col gap-3">
-          {FEATURES.map(([title, body, Icon]) => (
-            <Card key={title}>
-              <CardHeader className="flex-row items-center gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Icon className="size-4" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">{title}</CardTitle>
-                  <CardDescription className="mt-0.5">{body}</CardDescription>
-                </div>
-              </CardHeader>
+        {step === "what" && (
+          <div className="flex flex-col gap-6">
+            <div className="space-y-2 py-2 text-center">
+              <h1 className="text-3xl font-semibold tracking-tight">RemindMe</h1>
+              <p className="text-muted-foreground">Reminders that reach you — even when the app is closed.</p>
+            </div>
+            <Card>
+              <CardContent className="flex flex-col gap-5">
+                <FeatureRow icon={BellRing} title="Reminder" body="Alerts you at a time. Once, repeating, medical, or money." />
+                <FeatureRow icon={ListChecks} title="To-do" body="A checklist. Alerts are optional — add one to any task." />
+                <FeatureRow icon={Vault} title="Vault" body="Things you want to remember. No alerts; peek when you forget." />
+              </CardContent>
             </Card>
-          ))}
-        </div>
+            <p className="text-center text-xs text-muted-foreground">No accounts, no cloud. Everything stays on your device.</p>
+          </div>
+        )}
 
-        <Button size="lg" className="w-full" onClick={() => setStep("notifications")}>
-          Continue
-        </Button>
+        {step === "create" && (
+          <div className="flex flex-col gap-6">
+            <div className="space-y-2 py-2 text-center">
+              <h1 className="text-2xl font-semibold tracking-tight">Creating a reminder</h1>
+              <p className="text-muted-foreground">
+                Tap <span className="inline-flex items-center gap-0.5 font-medium text-foreground"><Plus className="size-3.5" /> New</span>, pick a kind, set a time, save.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {REMINDER_KINDS.map((kind) => {
+                const Icon = KIND_ICON[kind.value];
+                return (
+                  <Card key={kind.value} size="sm">
+                    <CardContent>
+                      <p className="flex items-center gap-1.5 font-medium">
+                        <Icon className="size-3.5 text-primary" /> {kind.label}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">{kind.description}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+            <p className="text-center text-xs text-muted-foreground">Mark it done when it fires. &ldquo;Once&rdquo; reminders clean themselves up.</p>
+          </div>
+        )}
+
+        {step === "share" && (
+          <div className="flex flex-col gap-6">
+            <div className="space-y-2 py-2 text-center">
+              <h1 className="text-2xl font-semibold tracking-tight">Share it</h1>
+              <p className="text-muted-foreground">Any reminder or your whole to-do list — one link.</p>
+            </div>
+            <Card>
+              <CardContent className="flex flex-col gap-5">
+                <FeatureRow icon={Share2} title="Tap Share" body="On a reminder card, or “Share list” on the To-do page." />
+                <FeatureRow icon={MessageCircle} title="Send on WhatsApp" body="Or copy the link, or use any app on your phone." />
+                <FeatureRow icon={ListChecks} title="They tap, it lands" body="It appears in their own RemindMe. No account, no sign-up." />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {step === "notifications" && (
+          <div className="flex flex-col gap-6">
+            <div className="space-y-2 py-2 text-center">
+              <h1 className="text-2xl font-semibold tracking-tight">Get notified</h1>
+              <p className="text-muted-foreground">
+                Reminders can alert you even when the app is closed. Turn that on now, or skip and do it later in Settings.
+              </p>
+            </div>
+            <NotificationSetup onContinue={finish} />
+          </div>
+        )}
+
+        {step !== "notifications" && (
+          <div className="mt-auto flex gap-3">
+            {index > 0 && (
+              <Button variant="outline" size="lg" className="flex-1" onClick={back}>
+                <ArrowLeft /> Back
+              </Button>
+            )}
+            <Button size="lg" className="flex-1" onClick={next}>
+              Next <ArrowRight />
+            </Button>
+          </div>
+        )}
       </div>
     </PageTransition>
   );

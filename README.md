@@ -12,6 +12,10 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
 
+### 2026-09-13 — Onboarding that explains the app (`improve/production-hardening`)
+
+The old intro was a feature list with a "Get Started" button. It is now four short screens with Back / Next / Skip and step dots: **what it is** (Reminder / To-do / Vault, one line each) → **how to create one** (the four kinds, as cards) → **how to share** (WhatsApp, copy, any app) → **get notified** (the notification step from the trust pass). Skip jumps to the notification step rather than past it. Replayable from Settings → "Replay Guide".
+
 ### 2026-09-13 — Share reminders *and* to-do lists (`improve/production-hardening`)
 
 - **Share a to-do list**: the To-do page has a "Share list" button that sends every open task as one link. The recipient previews the list on `/import` and adds the tasks to their own To-do — the "my mother is away next week, here's the list" case.
