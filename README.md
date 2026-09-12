@@ -22,7 +22,7 @@ Newest first. This log covers notable feature, UX, and PWA changes; see git hist
 
 ### 2026-09-13 — Status bar that matches the app
 
-In standalone mode Android paints the status bar with `theme_color`, which was `#0c0b09` — a black strip over a light app. Now the manifest is light-first (`theme_color` / `background_color` `#faf9f7`, so the launch frame and splash match the light app) and `components/ThemeColor.tsx` keeps a single `<meta name="theme-color">` equal to the resolved theme's background (`#faf9f7` light, `#0c0b09` dark), so the status bar follows the app in both modes and when the user flips the switch in Settings. The media-query pair of theme-color tags is gone — it wasn't being honoured on device.
+In an installed Android app Chrome paints the status bar with the **manifest's** `theme_color` — one static value; the page's `<meta name="theme-color">` does not override it there (verified on device: a light manifest colour gave a white status bar over the dark app even though the page meta said `#0c0b09`). So the manifest stays dark-first (`theme_color` / `background_color` `#0c0b09`): the status bar and splash match the dark app; in light mode the status bar is a dark strip, which is the accepted trade-off. `components/ThemeColor.tsx` still keeps a single `<meta name="theme-color">` equal to the resolved theme's background — that is what browser tabs use. The media-query pair of theme-color tags is gone. The grey "chin" under the bottom bar was `html`/`body` still painted `var(--card)` from the old grounded-bar design; they are now `var(--background)` like the page (see Platform UI notes).
 
 ### 2026-09-13 — Status bar back, icons that actually update
 
@@ -166,7 +166,7 @@ So there's a minimal Next.js API + database that stores **only**: your push subs
 ### Top takeaways
 
 1. **The bottom nav is a compact full-width grounded bar** (`components/BottomNav.tsx`): `fixed bottom-0`, solid `bg-card`, top border. **Do NOT add `env(safe-area-inset-bottom)` padding to the bar** — on iOS the layout viewport ends at the top of the home-indicator zone (782→812 on a real iPhone 17), so `env()` padding renders as empty space *inside* the bar.
-2. **The "gap" under the bar is the clipped home-indicator zone, painted with the `html`/`body` background.** We make it match the bar by setting `html`/`body` to `var(--card)` in `app/globals.css` and giving the page content its own `bg-background` (on `<main>`). The bar + that strip read as one continuous surface reaching the physical bottom; the home indicator floats on it. This is the standard iOS tab-bar look.
+2. **The "gap" under the bar is the clipped home-indicator zone, painted with the `html`/`body` background.** With the floating pill, `html`/`body` are `var(--background)` in `app/globals.css` — the same colour as `<main>` — so that strip (and, on Android, the strip behind the gesture bar) is indistinguishable from the page. (When the bar was a grounded full-width bar, this was `var(--card)` so the strip blended into the bar instead; a mismatch here shows up as a grey "chin" at the bottom.)
 3. **Measured on a real iPhone 17: `innerHeight` (812) = `screen.height` (874) minus top inset (~28px) minus `env-bottom` (34px).** Content placed below `innerHeight` is clipped — negative offsets "cut off clean", JS offsets hid the whole bar once.
 4. **Do NOT fix with device emulators.** Edge DevTools reported `env()=0` and `innerHeight==screen.height`, which contradicted the real device. Trust only installed-PWA measurements from a real phone.
 5. **Test on BOTH platforms after any change.** Minimum matrix: a notched iPhone (X/11/12/13/14/15/16/17) opened as an **installed Home Screen app**, and an Android phone in Chrome.
@@ -175,7 +175,7 @@ So there's a minimal Next.js API + database that stores **only**: your push subs
 
 All in `components/BottomNav.tsx` (mobile block):
 
-- **Bar reaching the bottom** → keep it compact (`bottom-0`, no `env()` padding). The strip below is bridged by the `html`/`body` card background in `globals.css` — if the gap color ever mismatches the bar, that identity is what to change.
+- **Strip below the bar** → bridged by the `html`/`body` background in `globals.css`, which must equal the page background (`var(--background)`) — if a coloured band ever appears under the bar, that identity is what to change.
 - **Page background** → `<main>` in `app/layout.tsx` carries `bg-background` + `min-h-[100dvh]` so the visible page keeps the app background color above the bar.
 - **Icons clear of the bottom** → the inner `pt-1.5`/`pb-2` + button `h-11`.
 - **Page content clearing the bar** → main's `pb-28` in `app/layout.tsx`.

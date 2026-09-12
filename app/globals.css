@@ -123,13 +123,15 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Same colour as <main>: whatever shows beyond the page — the strip behind Android's gesture
+     bar, iOS's home-indicator zone — must not read as a separate band. */
   html {
     @apply font-sans;
-    background-color: var(--card);
+    background-color: var(--background);
   }
   body {
     @apply text-foreground antialiased;
-    background-color: var(--card);
+    background-color: var(--background);
     -webkit-tap-highlight-color: transparent;
     overflow-anchor: none;
   }
