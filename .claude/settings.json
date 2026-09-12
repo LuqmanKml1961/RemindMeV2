@@ -1,3 +1,15 @@
 {
-  "includeCoAuthoredBy": false
+  "includeCoAuthoredBy": false,
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/user-prompt-rules.cjs"
+          }
+        ]
+      }
+    ]
+  }
 }
