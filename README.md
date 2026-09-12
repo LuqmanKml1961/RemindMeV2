@@ -12,6 +12,14 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
 
+### 2026-09-13 — Back to the root: clear kinds, clear links (`improve/production-hardening`)
+
+The three features now each answer one question — **Reminder**: "alert me at a time"; **To-do**: "a checklist, alerts optional"; **Vault**: "things I want to remember, no alerts" — and the UI says so.
+
+- **Reminder kinds** (`lib/domain/kind.ts`): the unexplained General / Medical / Monthly buttons are replaced by four kinds with one-line descriptions in the form — **Once** (alerts one time, auto-deletes when done), **Repeat**, **Medical**, **Money**. Kinds are *derived* from the existing `type` + `recurrence` fields, so no data migrates and old reminders show the right kind. Home filters by kind; cards show the kind badge.
+- **To-do → reminder, one direction**: a task has a "Remind me" bell that opens the reminder form prefilled and links the two (`TodoItem.reminderId`). The row then shows the alert time; completing the task completes its reminder (and stops the push). Deleting a reminder only *unlinks* its task instead of deleting it. The reverse "Also add to to-do list" switch on the reminder form is gone — it was the source of the confusion.
+- **Vault** copy explains what it's for; it is otherwise unchanged.
+
 ### 2026-09-13 — Notifications you can trust (`improve/production-hardening`)
 
 Enabling push used to be a blind, multi-second wait ("Get Started" awaited the browser prompt, the push service and the server with no loading state, and swallowed every failure), and "Enabled" was inferred from `Notification.permission` rather than proven. Now:

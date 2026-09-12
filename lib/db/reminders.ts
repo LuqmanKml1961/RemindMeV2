@@ -26,7 +26,8 @@ export async function updateReminder(reminder: Reminder): Promise<void> {
 
 export async function deleteReminder(id: string): Promise<void> {
   await db.reminders.delete(id);
-  await db.todos.where("reminderId").equals(id).delete();
+  // The task outlives its alert: removing a reminder only unlinks the to-do that pointed at it.
+  await db.todos.where("reminderId").equals(id).modify({ reminderId: null });
   await cancelReminderSchedule(id);
 }
 

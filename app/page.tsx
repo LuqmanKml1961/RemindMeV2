@@ -11,12 +11,16 @@ import { ReminderCard } from "../components/ReminderCard";
 import { NotificationBanner } from "../components/NotificationBanner";
 import { Button } from "../components/ui/button";
 import { PageTransition } from "../components/PageTransition";
+import { REMINDER_KINDS, kindLabel, reminderKind, type ReminderKind } from "../lib/domain/kind";
 import { cn } from "../lib/utils";
+
+type KindFilter = ReminderKind | "ALL";
 
 export default function HomePage() {
   const router = useRouter();
   const [checkedOnboarding, setCheckedOnboarding] = useState(false);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<KindFilter>("ALL");
 
   useEffect(() => {
     getPreferences()
@@ -53,8 +57,9 @@ export default function HomePage() {
 
   if (!checkedOnboarding) return null;
 
-  const active = reminders?.filter((r) => !r.isCompleted) ?? [];
-  const completed = reminders?.filter((r) => r.isCompleted) ?? [];
+  const visible = filter === "ALL" ? (reminders ?? []) : (reminders ?? []).filter((r) => reminderKind(r) === filter);
+  const active = visible.filter((r) => !r.isCompleted);
+  const completed = visible.filter((r) => r.isCompleted);
 
   return (
     <PageTransition>
@@ -71,11 +76,33 @@ export default function HomePage() {
 
         <NotificationBanner />
 
+        {reminders && reminders.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {(["ALL", ...REMINDER_KINDS.map((k) => k.value)] as KindFilter[]).map((value) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={filter === value ? "default" : "outline"}
+                onClick={() => setFilter(value)}
+              >
+                {value === "ALL" ? "All" : kindLabel(value)}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {reminders && reminders.length === 0 && (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">
             <p>No reminders yet.</p>
             <p>Tap “New” to create one.</p>
           </div>
+        )}
+
+        {reminders && reminders.length > 0 && visible.length === 0 && filter !== "ALL" && (
+          <p className="rounded-xl border border-dashed py-8 text-center text-sm text-muted-foreground">
+            No {kindLabel(filter)} reminders.
+          </p>
         )}
 
         <div className="grid gap-3 sm:grid-cols-2 sm:auto-rows-fr">

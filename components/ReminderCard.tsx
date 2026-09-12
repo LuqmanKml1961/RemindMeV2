@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { Reminder } from "../lib/domain/types";
 import { deleteReminder, setCompleted } from "../lib/db/reminders";
 import { recurrenceLabel } from "../lib/domain/recurrence";
+import { kindLabel, reminderKind } from "../lib/domain/kind";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
@@ -19,12 +20,6 @@ const TYPE_ACCENT: Record<Reminder["type"], string> = {
   GENERAL: "border-l-primary",
   MEDICAL: "border-l-red-500",
   MONTHLY: "border-l-blue-500",
-};
-
-const TYPE_BADGE: Record<Reminder["type"], string> = {
-  GENERAL: "General",
-  MEDICAL: "Medical",
-  MONTHLY: "Monthly",
 };
 
 function useNow(intervalMs: number): number {
@@ -72,7 +67,7 @@ export function ReminderCard({ reminder }: { reminder: Reminder }) {
           <div className="flex items-center gap-2">
             <p className={`truncate font-medium ${reminder.isCompleted ? "line-through" : ""}`}>{reminder.title}</p>
             <Badge variant="outline" className="shrink-0">
-              {TYPE_BADGE[reminder.type]}
+              {kindLabel(reminderKind(reminder))}
             </Badge>
           </div>
           {reminder.description && <p className="mt-1 text-sm text-muted-foreground">{reminder.description}</p>}

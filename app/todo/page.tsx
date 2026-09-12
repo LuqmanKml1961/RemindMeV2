@@ -1,23 +1,119 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
+import Link from "next/link";
 import { useState } from "react";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { db } from "../../lib/db/dexie";
 import { createTodo, deleteTodo, toggleTodo, updateTodo } from "../../lib/db/todos";
-import type { TodoItem } from "../../lib/domain/types";
+import type { Reminder, TodoItem } from "../../lib/domain/types";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Checkbox } from "../../components/ui/checkbox";
 import { PageTransition } from "../../components/PageTransition";
-import { CheckCircle2, Plus, Trash2, Pencil, X, Check } from "lucide-react";
+import { BellPlus, BellRing, Check, CheckCircle2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "../../lib/utils";
+
+interface TodoRowProps {
+  todo: TodoItem;
+  reminder: Reminder | undefined;
+  editing: boolean;
+  editingText: string;
+  onEditingTextChange: (text: string) => void;
+  onStartEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
+}
+
+function TodoRow({ todo, reminder, editing, editingText, onEditingTextChange, onStartEdit, onSaveEdit, onCancelEdit, onToggle, onDelete }: TodoRowProps) {
+  return (
+    <div
+      className={cn(
+        "flex min-h-12 items-center gap-3 rounded-lg border bg-card px-3 py-3 text-card-foreground",
+        todo.isCompleted && "opacity-60"
+      )}
+    >
+      <Checkbox checked={todo.isCompleted} onCheckedChange={onToggle} aria-label="Mark done" />
+      <div className="min-w-0 flex-1">
+        {editing ? (
+          <Input
+            value={editingText}
+            onChange={(e) => onEditingTextChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSaveEdit();
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            autoFocus
+          />
+        ) : (
+          <>
+            <span className={cn("block", todo.isCompleted && "line-through")}>{todo.text}</span>
+            {reminder && (
+              <Link
+                href={`/create?id=${reminder.id}`}
+                transitionTypes={["nav-forward"]}
+                className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <BellRing className="size-3" />
+                {reminder.dueDate ? format(new Date(reminder.dueDate), "d MMM, h:mm a") : "Reminder set (no time)"}
+              </Link>
+            )}
+          </>
+        )}
+      </div>
+      {editing ? (
+        <>
+          <Button variant="ghost" size="icon-sm" onClick={onSaveEdit} aria-label="Save">
+            <Check />
+          </Button>
+          <Button variant="ghost" size="icon-sm" onClick={onCancelEdit} aria-label="Cancel">
+            <X />
+          </Button>
+        </>
+      ) : (
+        <>
+          {!reminder && !todo.isCompleted && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Remind me"
+              render={<Link href={`/create?todo=${todo.id}`} transitionTypes={["nav-forward"]} />}
+            >
+              <BellPlus />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon-sm" onClick={onStartEdit} aria-label="Edit">
+            <Pencil />
+          </Button>
+          <Button variant="ghost" size="icon-sm" className="text-destructive" onClick={onDelete} aria-label="Delete">
+            <Trash2 />
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function TodoPage() {
   const [text, setText] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const todos = useLiveQuery(() => db.todos.orderBy("createdAt").reverse().toArray(), [], []);
+
+  // Linked reminders, looked up in one query so each row can show its alert time.
+  const linkedKey = (todos ?? [])
+    .map((t) => t.reminderId)
+    .filter((id): id is string => !!id)
+    .join(",");
+  const linkedReminders = useLiveQuery(
+    () => (linkedKey ? db.reminders.where("id").anyOf(linkedKey.split(",")).toArray() : Promise.resolve([] as Reminder[])),
+    [linkedKey],
+    []
+  );
+  const reminderById = new Map((linkedReminders ?? []).map((r) => [r.id, r]));
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -65,6 +161,24 @@ export default function TodoPage() {
     }
   }
 
+  function renderRow(todo: TodoItem) {
+    return (
+      <TodoRow
+        key={todo.id}
+        todo={todo}
+        reminder={todo.reminderId ? reminderById.get(todo.reminderId) : undefined}
+        editing={editingId === todo.id}
+        editingText={editingText}
+        onEditingTextChange={setEditingText}
+        onStartEdit={() => startEdit(todo)}
+        onSaveEdit={() => saveEdit(todo)}
+        onCancelEdit={() => setEditingId(null)}
+        onToggle={() => handleToggle(todo)}
+        onDelete={() => handleDelete(todo.id)}
+      />
+    );
+  }
+
   const pending = todos?.filter((t) => !t.isCompleted) ?? [];
   const done = todos?.filter((t) => t.isCompleted) ?? [];
 
@@ -73,7 +187,9 @@ export default function TodoPage() {
       <div className="flex flex-col gap-5">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">To-do</h1>
-          <p className="text-sm text-muted-foreground">Knock things off one at a time.</p>
+          <p className="text-sm text-muted-foreground">
+            A checklist. No alerts unless you tap <BellPlus className="inline size-3.5 align-text-bottom" /> to add a reminder to a task.
+          </p>
         </div>
 
         <form onSubmit={handleAdd} className="flex gap-2">
@@ -83,49 +199,7 @@ export default function TodoPage() {
           </Button>
         </form>
 
-        <div className="grid gap-2 sm:grid-cols-2 sm:auto-rows-fr">
-          {pending.map((todo) => (
-            <div
-              key={todo.id}
-              className="flex min-h-12 items-center gap-3 rounded-lg border bg-card px-3 py-3 text-card-foreground"
-            >
-              <Checkbox checked={todo.isCompleted} onCheckedChange={() => handleToggle(todo)} />
-              {editingId === todo.id ? (
-                <Input
-                  value={editingText}
-                  onChange={(e) => setEditingText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveEdit(todo);
-                    if (e.key === "Escape") setEditingId(null);
-                  }}
-                  className="flex-1"
-                  autoFocus
-                />
-              ) : (
-                <span className="flex-1">{todo.text}</span>
-              )}
-              {editingId === todo.id ? (
-                <>
-                  <Button variant="ghost" size="icon-sm" onClick={() => saveEdit(todo)} aria-label="Save">
-                    <Check />
-                  </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={() => setEditingId(null)} aria-label="Cancel">
-                    <X />
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button variant="ghost" size="icon-sm" onClick={() => startEdit(todo)} aria-label="Edit">
-                    <Pencil />
-                  </Button>
-                  <Button variant="ghost" size="icon-sm" className="text-destructive" onClick={() => handleDelete(todo.id)} aria-label="Delete">
-                    <Trash2 />
-                  </Button>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
+        <div className="grid gap-2 sm:grid-cols-2 sm:auto-rows-fr">{pending.map(renderRow)}</div>
         {pending.length === 0 && (
           <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
             Nothing to do. Nice.
@@ -138,51 +212,7 @@ export default function TodoPage() {
               <CheckCircle2 className="size-4" />
               Completed ({done.length})
             </summary>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 sm:auto-rows-fr">
-              {done.map((todo) => (
-                <div
-                  key={todo.id}
-                  className={cn(
-                    "flex min-h-12 items-center gap-3 rounded-lg border bg-card px-3 py-3 text-card-foreground opacity-60"
-                  )}
-                >
-                  <Checkbox checked={todo.isCompleted} onCheckedChange={() => handleToggle(todo)} />
-                  {editingId === todo.id ? (
-                    <Input
-                      value={editingText}
-                      onChange={(e) => setEditingText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveEdit(todo);
-                        if (e.key === "Escape") setEditingId(null);
-                      }}
-                      className="flex-1"
-                      autoFocus
-                    />
-                  ) : (
-                    <span className="flex-1 line-through">{todo.text}</span>
-                  )}
-                  {editingId === todo.id ? (
-                    <>
-                      <Button variant="ghost" size="icon-sm" onClick={() => saveEdit(todo)} aria-label="Save">
-                        <Check />
-                      </Button>
-                      <Button variant="ghost" size="icon-sm" onClick={() => setEditingId(null)} aria-label="Cancel">
-                        <X />
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button variant="ghost" size="icon-sm" onClick={() => startEdit(todo)} aria-label="Edit">
-                        <Pencil />
-                      </Button>
-                      <Button variant="ghost" size="icon-sm" className="text-destructive" onClick={() => handleDelete(todo.id)} aria-label="Delete">
-                        <Trash2 />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 sm:auto-rows-fr">{done.map(renderRow)}</div>
           </details>
         )}
       </div>
