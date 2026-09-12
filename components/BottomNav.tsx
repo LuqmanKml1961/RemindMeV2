@@ -123,7 +123,7 @@ export function BottomNav() {
           )}
         >
           <span className="flex items-center gap-2">
-            <Image src="/icons/icon-192.png" alt="" width={32} height={32} className="size-8 shrink-0 rounded-lg" />
+            <Image src="/icons/icon-192.png?v=2" alt="" width={32} height={32} unoptimized className="size-8 shrink-0 rounded-lg" />
 
             {!collapsed && <span className="text-base font-semibold tracking-tight">RemindMe</span>}
           </span>

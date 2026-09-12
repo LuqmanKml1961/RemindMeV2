@@ -135,8 +135,8 @@ function showReminderNotification({ title, body, reminderId }) {
 
   return self.registration.showNotification(title || "RemindMe", {
     body: body || "Your reminder is due",
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-badge.png",
+    icon: "/icons/icon-192.png?v=2",
+    badge: "/icons/icon-badge.png?v=2",
     tag: reminderId ? `reminder-${reminderId}` : undefined,
     data: { reminderId: reminderId ?? null },
     requireInteraction: isChromium,

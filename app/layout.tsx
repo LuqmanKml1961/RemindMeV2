@@ -27,12 +27,17 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "RemindMe",
   },
+  // Declaring `icons` here replaces the links Next would emit for app/icon.png and
+  // app/apple-icon.png, so every icon is listed explicitly. Bump ?v= whenever the artwork
+  // changes — /icons/* is served immutable for a day and Chrome only refreshes an installed
+  // app's icon when the manifest's icon URL changes.
   icons: {
     icon: [
-      { url: "/icons/icon-192.png", type: "image/png", sizes: "192x192" },
-      { url: "/icons/icon-512.png", type: "image/png", sizes: "512x512" },
+      { url: "/icon.png?v=2", type: "image/png", sizes: "64x64" },
+      { url: "/icons/icon-192.png?v=2", type: "image/png", sizes: "192x192" },
+      { url: "/icons/icon-512.png?v=2", type: "image/png", sizes: "512x512" },
     ],
-    apple: [{ url: "/apple-icon.png", type: "image/png", sizes: "180x180" }],
+    apple: [{ url: "/apple-icon.png?v=2", type: "image/png", sizes: "180x180" }],
   },
   openGraph: {
     type: "website",

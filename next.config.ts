@@ -32,11 +32,13 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Manifest + icons can be cached aggressively - they're content-addressed enough for PWA use.
+        // Always revalidated: Chrome decides whether an installed app needs a new icon/name/display
+        // mode by re-reading this file, so a day-old cached copy delays every such update.
         source: "/manifest.webmanifest",
-        headers: [{ key: "Cache-Control", value: "public, max-age=86400" }],
+        headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
       },
       {
+        // Icon URLs carry ?v=N and are bumped when the artwork changes, so caching hard is safe.
         source: "/icons/(.*)",
         headers: [{ key: "Cache-Control", value: "public, max-age=86400, immutable" }],
       },

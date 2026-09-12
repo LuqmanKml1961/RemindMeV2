@@ -20,6 +20,13 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
 
+### 2026-09-13 — Status bar back, icons that actually update
+
+- **`display: "standalone"`** (was `fullscreen`). On Android, `fullscreen` takes the whole screen *including* the status bar — no clock, battery or signal while the app is open. `standalone` keeps the status bar (tinted with `theme_color`) and still hides all browser UI. Layout was already safe-area aware, so nothing else moved.
+- **Icon URLs are versioned** (`/icons/icon-192.png?v=2` etc. in the manifest, `<head>`, service worker notifications, and in-app uses). Icons are served `immutable` for a day, and Chrome only refreshes an installed app's icon and splash when the manifest's icon URL changes — so a same-URL artwork swap was invisible to it. **Bump `?v=` whenever the artwork changes.** The manifest itself is now `max-age=0, must-revalidate` so Chrome's update check always sees the current one.
+- `<head>` icon links (favicon, 192/512, `apple-touch-icon`) are all declared in `app/layout.tsx` with the same `?v=`: on this Next version an explicit `metadata.icons` replaces the links the `app/icon.png` / `app/apple-icon.png` conventions would emit, so they must be listed there.
+- Platform limits, for the record: Chrome checks an installed app's manifest at most about once a day and applies icon/name/display changes on a later launch, so allow a day or two. **iOS never updates an installed web app's icon** — remove it from the Home Screen and add it again.
+
 ### 2026-09-13 — Updates that install themselves (`improve/production-hardening`)
 
 Deploys used to require clearing site data or reinstalling the app: the service worker only changed when someone edited its cache-name constant by hand, and the page only looked for a new worker at load — an installed app resumed from memory never noticed a deploy. Now:
