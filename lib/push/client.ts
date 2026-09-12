@@ -52,6 +52,69 @@ export async function hasActiveSubscription(): Promise<boolean> {
   }
 }
 
+// "ready" only counts once a live subscription is confirmed; otherwise it reads as not enabled.
+export async function getVerifiedNotificationReadiness(): Promise<NotificationReadiness> {
+  const readiness = getNotificationReadiness();
+  if (readiness !== "ready") return readiness;
+  return (await hasActiveSubscription()) ? "ready" : "needs-permission";
+}
+
+// Turns push off for this device: server first (drops the subscription and every scheduled
+// trigger), then the browser subscription, then the stored token. Active dated reminders are
+// flagged pushSyncPending so a later re-enable schedules them again. Throws if the server can't be
+// reached, so nothing is half-disabled.
+export async function disableNotifications(): Promise<void> {
+  const deviceId = await getDeviceId();
+  const pushToken = await getPushToken();
+  if (pushToken) {
+    const res = await fetch("/api/push/unsubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId, deviceToken: pushToken }),
+    });
+    // 401 means the server already forgot this device — nothing left to remove there.
+    if (!res.ok && res.status !== 401) throw new Error(`unsubscribe failed (${res.status})`);
+  }
+  const registration = await navigator.serviceWorker.getRegistration();
+  const subscription = await registration?.pushManager.getSubscription();
+  if (subscription) await subscription.unsubscribe();
+  await updatePreferences({ pushToken: "" });
+  await db.reminders
+    .filter((r) => !!r.dueDate && !r.isCompleted && !r.isArchived)
+    .modify({ pushSyncPending: true });
+}
+
+export type TestPushResult = "sent" | "gone" | "failed" | "not-enabled" | "error";
+
+// Asks the server to send one real push to this device — the only way to prove the whole
+// pipeline (VAPID → push service → device) works, rather than trusting Notification.permission.
+export async function sendTestNotification(): Promise<TestPushResult> {
+  const deviceId = await getDeviceId();
+  const pushToken = await getPushToken();
+  if (!pushToken) return "not-enabled";
+  try {
+    const res = await fetch("/api/push/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId, deviceToken: pushToken }),
+    });
+    if (res.status === 401) {
+      await updatePreferences({ pushToken: "" });
+      return "not-enabled";
+    }
+    if (!res.ok) return "error";
+    const data = (await res.json().catch(() => null)) as { result?: string } | null;
+    if (data?.result === "gone") {
+      await updatePreferences({ pushToken: "" });
+      return "gone";
+    }
+    return data?.result === "sent" || data?.result === "failed" ? data.result : "error";
+  } catch (err) {
+    console.error("Test push failed", err);
+    return "error";
+  }
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");

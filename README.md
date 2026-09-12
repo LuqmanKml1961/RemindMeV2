@@ -12,6 +12,16 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
 
+### 2026-09-13 — Notifications you can trust (`improve/production-hardening`)
+
+Enabling push used to be a blind, multi-second wait ("Get Started" awaited the browser prompt, the push service and the server with no loading state, and swallowed every failure), and "Enabled" was inferred from `Notification.permission` rather than proven. Now:
+
+- **Onboarding** has a dedicated "Get notified" step (`components/NotificationSetup.tsx`): a visible loading state while the permission → subscribe → server chain runs, the honest outcome (On / Off / Blocked / Install first / Failed) with what to do about it, and a **Skip for now** that never blocks first use.
+- **Settings** has a real **on/off switch**. Off genuinely unsubscribes (server via `/api/push/unsubscribe`, then the browser subscription, then the stored token) and flags active reminders `pushSyncPending` so turning it back on reschedules them. Status is always derived from a live subscription (`getVerifiedNotificationReadiness()`), never from permission alone.
+- **Send test notification** (`POST /api/push/test`, device-token protected) pushes through the real pipeline — VAPID → push service → device — so closed-app delivery can be proven on the actual phone instead of guessed. The result distinguishes "sent", "subscription expired", "server couldn't send" (VAPID/config) and "couldn't reach server".
+- **Home** shows a shadcn `Alert` whenever reminders can't alert a closed app, linking to Settings.
+- New shadcn primitives: `alert`, `spinner`.
+
 ### 2026-09-13 — Production validation pass (`improve/production-hardening`)
 
 A full audit of the codebase against the Next.js 16 production checklist. Lint, type-check, unit tests, and the production build were already clean; the fixes below address the remaining real defects found by reading every module.

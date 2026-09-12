@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { updatePreferences } from "../../lib/db/preferences";
-import { requestNotificationPermissionAndSubscribe } from "../../lib/push/client";
 import { Button } from "../../components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { NotificationSetup } from "../../components/NotificationSetup";
 import { PageTransition } from "../../components/PageTransition";
 import { Bell, Pill, Wallet, Shield, Share2 } from "lucide-react";
 
@@ -18,11 +20,33 @@ const FEATURES = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const [step, setStep] = useState<"tour" | "notifications">("tour");
 
   async function finish() {
-    await requestNotificationPermissionAndSubscribe().catch(() => undefined);
-    await updatePreferences({ hasSeenOnboarding: true });
+    try {
+      await updatePreferences({ hasSeenOnboarding: true });
+    } catch (err) {
+      console.error("Failed to save onboarding state", err);
+      toast.error("Couldn't save your progress. Please try again.");
+      return;
+    }
     router.replace("/", { transitionTypes: ["nav-forward"] });
+  }
+
+  if (step === "notifications") {
+    return (
+      <PageTransition>
+        <div className="flex flex-col gap-6">
+          <div className="space-y-2 py-4 text-center">
+            <h1 className="text-3xl font-semibold tracking-tight">Get notified</h1>
+            <p className="text-muted-foreground">
+              Reminders can alert you even when the app is closed. Turn that on now, or skip and do it later in Settings.
+            </p>
+          </div>
+          <NotificationSetup onContinue={finish} />
+        </div>
+      </PageTransition>
+    );
   }
 
   return (
@@ -49,8 +73,8 @@ export default function OnboardingPage() {
           ))}
         </div>
 
-        <Button size="lg" className="w-full" onClick={finish}>
-          Get Started
+        <Button size="lg" className="w-full" onClick={() => setStep("notifications")}>
+          Continue
         </Button>
       </div>
     </PageTransition>

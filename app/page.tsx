@@ -8,6 +8,7 @@ import { Plus, CheckCircle2 } from "lucide-react";
 import { db } from "../lib/db/dexie";
 import { getPreferences } from "../lib/db/preferences";
 import { ReminderCard } from "../components/ReminderCard";
+import { NotificationBanner } from "../components/NotificationBanner";
 import { Button } from "../components/ui/button";
 import { PageTransition } from "../components/PageTransition";
 import { cn } from "../lib/utils";
@@ -67,6 +68,8 @@ export default function HomePage() {
             <Plus /> New
           </Button>
         </div>
+
+        <NotificationBanner />
 
         {reminders && reminders.length === 0 && (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">
