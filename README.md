@@ -12,6 +12,17 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
 
+### 2026-09-13 — Production validation pass (`improve/production-hardening`)
+
+A full audit of the codebase against the Next.js 16 production checklist. Lint, type-check, unit tests, and the production build were already clean; the fixes below address the remaining real defects found by reading every module.
+
+- **Offline notification tap** (`public/sw.js`): tapping a notification navigates to `/?reminder=<id>`. Offline, the service worker matched that exact URL against the cache, missed, and served the `/offline` page even though `/` was cached. Navigation fallback now matches with `ignoreSearch`.
+- **Settings hydration mismatch** (`app/settings/page.tsx`): notification readiness was computed during the first render, so the prerendered HTML (`needs-permission`) disagreed with the client (`needs-install` on iOS Safari, `ready` after enabling). Readiness is now resolved after mount.
+- **Dispatch auth** (`app/api/push/dispatch/route.ts`): the constant-time comparison guarded on string length but compared bytes, so a same-length multibyte `Authorization` header produced a 500 instead of a 401. It now compares byte lengths.
+- **`VAPID_SUBJECT` fallback** (`lib/push/send.ts`): an empty-string value now falls back like an unset one, matching how `DATABASE_URL` is handled.
+- **Tooling**: `vitest.config.ts` → `.mts` (silences the CommonJS warning), `engines.node >= 20.9.0` declared (Next 16 requirement), CI runs with read-only token permissions and cancels superseded runs, and `lib/api/withErrors.ts` now has unit tests.
+- **Known limitation, unchanged**: `/api/push/subscribe` is anonymous and unthrottled. Proper rate limiting on serverless needs a shared store (e.g. Vercel KV / Upstash); it is deliberately not bolted on here.
+
 ### 2026-09-11 — Exact-time local notifications
 
 Push notifications previously couldn't arrive faster than the server's ~1-minute dispatch cron. Now they fire at the **exact** due-second while your device is awake:
@@ -372,7 +383,7 @@ Real issues hit while standing this deployment up, roughly in the order they'd b
 ```bash
 npm run build   # type-checks + production build
 npm run lint
-npm run test    # unit tests (vitest) for domain logic
+npm run test    # unit tests (vitest) for domain logic and the API error boundary
 ```
 
 ## License

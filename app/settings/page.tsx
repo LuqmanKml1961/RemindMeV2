@@ -13,6 +13,14 @@ import { Switch } from "../../components/ui/switch";
 import { PageTransition } from "../../components/PageTransition";
 import { Bell, RotateCcw, BellOff } from "lucide-react";
 
+// Notification.permission can be "granted" without a live subscription ever having been saved, so
+// a "ready" readiness is only trusted once hasActiveSubscription() confirms it.
+async function resolveReadiness(): Promise<NotificationReadiness> {
+  const readiness = getNotificationReadiness();
+  if (readiness !== "ready") return readiness;
+  return (await hasActiveSubscription()) ? "ready" : "needs-permission";
+}
+
 const STATUS_COPY: Record<NotificationReadiness, string> = {
   unsupported: "Not supported in this browser.",
   "needs-install": "Add RemindMe to your Home Screen first (Share → Add to Home Screen), then come back here.",
@@ -26,9 +34,9 @@ export default function SettingsPage() {
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const [autoDeleteDefault, setAutoDeleteDefault] = useState(false);
-  const [status, setStatus] = useState<NotificationReadiness>(() =>
-    typeof window === "undefined" ? "needs-permission" : getNotificationReadiness()
-  );
+  // Readiness depends on browser APIs, so it is resolved after mount: the prerendered HTML and the
+  // first client render must agree, otherwise React reports a hydration mismatch on this page.
+  const [status, setStatus] = useState<NotificationReadiness>("needs-permission");
   const [enabling, setEnabling] = useState(false);
 
   useEffect(() => {
@@ -36,12 +44,13 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (status !== "ready") return;
-    hasActiveSubscription().then((has) => {
-      if (!has) setStatus("needs-permission");
+    let cancelled = false;
+    resolveReadiness().then((readiness) => {
+      if (!cancelled) setStatus(readiness);
     });
-    // Only verify the initial "ready" read from getNotificationReadiness() on mount — not every status change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function toggleAutoDelete(value: boolean) {

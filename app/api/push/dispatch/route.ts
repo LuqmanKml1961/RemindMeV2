@@ -15,10 +15,11 @@ export const POST = withErrors(async (req: NextRequest) => {
   if (!secret) {
     return NextResponse.json({ error: "dispatch not configured: set CRON_SECRET" }, { status: 503 });
   }
-  const provided = req.headers.get("authorization") ?? "";
-  const expected = `Bearer ${secret}`;
-  const matches =
-    provided.length === expected.length && timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+  // Compare byte lengths, not string lengths: timingSafeEqual throws on buffers of different
+  // size, and a multibyte header can match the string length while differing in bytes.
+  const provided = Buffer.from(req.headers.get("authorization") ?? "");
+  const expected = Buffer.from(`Bearer ${secret}`);
+  const matches = provided.length === expected.length && timingSafeEqual(provided, expected);
   if (!matches) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const now = Date.now();

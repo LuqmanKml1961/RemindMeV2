@@ -7,7 +7,8 @@ let configured = false;
 function ensureConfigured(): boolean {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT ?? "mailto:admin@example.com";
+  // `||` so an empty-string env var falls back too (same reasoning as resolveUrl in store.ts).
+  const subject = process.env.VAPID_SUBJECT || "mailto:admin@example.com";
   if (!publicKey || !privateKey) return false;
   if (!configured) {
     webpush.setVapidDetails(subject, publicKey, privateKey);

@@ -76,7 +76,9 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() =>
-          caches.match(request).then((cached) => {
+          // ignoreSearch: a notification click navigates to /?reminder=<id>, which must still
+          // resolve to the cached "/" shell instead of falling through to the offline page.
+          caches.match(request, { ignoreSearch: true }).then((cached) => {
             if (cached) return cached;
             return caches.match(OFFLINE_URL);
           })

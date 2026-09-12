@@ -61,7 +61,6 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={cn("h-full", "font-sans", geist.variable)} suppressHydrationWarning>
-      {/* 1. Added bg-background and text-foreground here */}
       <body className="min-h-full antialiased bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <PwaRegister />
@@ -69,7 +68,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <OfflineBanner />
           <div className="lg:flex lg:min-h-[100dvh]">
             <BottomNav />
-            {/* 2. Removed bg-background from here */}
             <main className="w-full min-h-[100dvh] px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-28 sm:px-6 lg:flex-1 lg:px-8 lg:pb-12 xl:px-12">
               <div className="mx-auto w-full max-w-3xl">
                 {children}
