@@ -2,7 +2,15 @@
 
 A local-first reminder app - installable on laptop, iOS, and Android from one codebase. No accounts, no cloud: reminders, medications, vault entries, and to-dos live entirely in your browser's storage (IndexedDB).
 
-This is the PWA rewrite of the original native Android app (Kotlin/Compose, see the sibling `RemindMe` repo). Feature parity: time-based reminders with quick presets, medical entries with multiple medications, monthly bills with an amount, recurrence (daily/weekly/monthly/yearly/every N days), share-via-link import, a notification-free Vault (People / Home & Vehicle / Property), a to-do list, auto-delete on completion, and onboarding.
+This is the PWA rewrite of the original native Android app (Kotlin/Compose, see the sibling `RemindMe` repo). Three things, each answering one question:
+
+| | One-line meaning | Alerts? |
+| --- | --- | --- |
+| **Reminder** | "Alert me at a time." Four kinds: **Once** (auto-deletes when done), **Repeat** (daily/weekly/monthly/yearly/every N days), **Medical** (medication list), **Money** (amount). | Always |
+| **To-do** | "A checklist of things to do." | Optional — "Remind me" on a task creates a linked Reminder |
+| **Vault** | "Things I want to remember. Peek when I forget." (People / Home & Vehicle / Property) | Never |
+
+Any reminder or the whole to-do list can be **shared as a link** (WhatsApp, copy, or any app); the recipient taps it and it lands in their own RemindMe — no accounts anywhere.
 
 Live deployment: `https://remind-me-v2.vercel.app`
 
@@ -197,19 +205,20 @@ The reminder's data is embedded directly in the share link's URL fragment (`/imp
 | Path | What it does |
 | --- | --- |
 | `app/layout.tsx` | Root layout: registers the service worker (`components/PwaRegister.tsx`), renders the bottom nav, sets PWA metadata (manifest link, theme color). |
-| `app/page.tsx` | Home screen. Redirects to `/onboarding` if the user hasn't seen it yet; otherwise lists active/completed reminders via a live Dexie query. |
-| `app/create/page.tsx` | Create/edit reminder form - type (General/Medical/Monthly), title, description, medications editor, due-date presets, recurrence picker, auto-delete toggle. |
-| `app/todo/page.tsx` | Simple to-do list (add, toggle complete, delete). |
+| `app/page.tsx` | Home screen. Redirects to `/onboarding` if the user hasn't seen it yet; otherwise lists active/completed reminders via a live Dexie query, filterable by kind, with a banner when notifications can't reach a closed app. |
+| `app/create/page.tsx` | Create/edit reminder form - kind (Once/Repeat/Medical/Money, see `lib/domain/kind.ts`), title, description, medications editor, due-date presets, recurrence picker, auto-delete toggle. Opened as `/create?todo=<id>` from a to-do task, it prefills the title and links the task on save. |
+| `app/todo/page.tsx` | To-do checklist (add, edit, toggle, delete), "Remind me" per task, "Share list" for every open task. |
 | `app/vault/page.tsx` | Vault CRUD - People / Home & Vehicle / Property categories, search, no notifications ever. |
-| `app/settings/page.tsx` | Notification permission status + enable button, auto-delete default toggle, replay onboarding. |
-| `app/onboarding/page.tsx` | First-run feature tour; "Get Started" requests notification permission and marks onboarding seen. |
-| `app/import/page.tsx` | Reads the share link's URL fragment, decodes it, shows a preview, and imports on confirm. |
+| `app/settings/page.tsx` | Notifications on/off switch (status always derived from a live subscription) + "Send test notification", auto-delete default toggle, dark mode, replay onboarding. |
+| `app/onboarding/page.tsx` | Four-screen guided intro: what it is → how to create → how to share → get notified (`components/NotificationSetup.tsx`). Skippable; marks onboarding seen at the end. |
+| `app/import/page.tsx` | Reads the share link's URL fragment, decodes a reminder or a to-do list, shows a preview, and imports on confirm. |
 | `app/api/push/subscribe/route.ts` | Saves a device's push subscription (endpoint + keys) to the database. |
 | `app/api/push/unsubscribe/route.ts` | Deletes a device's subscription and all its scheduled triggers. |
 | `app/api/push/schedule/route.ts` | Upserts one scheduled trigger (reminder id, title, body, trigger time, recurrence) for a device. |
 | `app/api/push/cancel/route.ts` | Deletes one scheduled trigger (reminder completed/deleted/dated cleared). |
 | `app/api/push/dispatch/route.ts` | The cron target: finds due triggers, sends each push, reschedules recurring ones, and re-queues one-off send failures (bounded retries) so notifications aren't silently dropped. Requires `CRON_SECRET` - unset means dispatch refuses to run (503). GET is a no-op; only an authenticated POST dispatches. |
 | `app/api/push/vapid-public-key/route.ts` | Returns the server's VAPID public key so the client can subscribe - see [why this isn't a build-time env var](#why-the-vapid-public-key-is-fetched-not-baked-in) below. |
+| `app/api/push/test/route.ts` | Device-token protected. Sends one real push to the calling device so closed-app delivery can be proven end-to-end from Settings. |
 
 ### `components/`
 
@@ -218,8 +227,10 @@ The reminder's data is embedded directly in the share link's URL fragment (`/imp
 | `components/ui/` | shadcn/base-ui primitives (button, card, input, switch, badge, …) - the current design system, replacing a previous standalone `Brutal.tsx` set. |
 | `BottomNav.tsx` | The Home/Todo/Vault/Settings tab bar; hides itself on `/onboarding` and `/import`. |
 | `PwaRegister.tsx` | Client component that registers `public/sw.js` on mount. |
+| `NotificationSetup.tsx` | The onboarding "Get notified" step: enable button with a visible loading state, the honest outcome, Skip. Also exports the shared status copy used by Settings and the Home banner. |
+| `NotificationBanner.tsx` | Home-page `Alert` shown whenever reminders can't alert a closed app, linking to Settings. |
 | `ReminderCard.tsx` | One reminder in the list: shows medications/amount depending on type, overdue highlighting (re-checked every 30s via a small `useNow` hook), complete checkbox, edit/share/delete actions. |
-| `ShareDialog.tsx` | The share modal - "Copy Link" (via `lib/clipboard.ts`) and native "Share" (via the Web Share API when available). |
+| `ShareDialog.tsx` | The share modal for reminders and to-do lists - "Send on WhatsApp" (`wa.me`), "Copy" (via `lib/clipboard.ts`), and "Other apps" (Web Share API when available). |
 
 ### `lib/domain/`
 
@@ -229,15 +240,16 @@ Pure logic with no browser/server dependencies - the equivalent of the original 
 | --- | --- |
 | `types.ts` | The data model: `Reminder`, `Medication`, `RecurrenceRule`, `VaultReference`, `TodoItem`, `Preferences`. |
 | `recurrence.ts` | `computeNextDue()` - given a last-due date and a recurrence rule, returns the next occurrence (daily/weekly/monthly/yearly/every-N-days). Used both client-side (when a reminder fires locally) and server-side (when the dispatch cron reschedules a recurring push). |
-| `share.ts` | `encodeShareFragment()` / `decodeShareFragment()` - base64url-encodes a reminder's data for the share link's URL fragment (`#...`), which the browser never sends to any server. This is the fix for the original Android app's bug where share links only worked if the recipient already had the reminder in their own local database. |
+| `kind.ts` | `reminderKind()` derives Once / Repeat / Medical / Money from a reminder's `type` + `recurrence` (nothing is stored); `REMINDER_KINDS` carries the labels and one-line descriptions shown in the form and onboarding. |
+| `share.ts` | `encodeShareFragment()` / `encodeTodoListFragment()` / `decodeSharedContent()` - base64url-encodes a reminder or a to-do list for the share link's URL fragment (`#...`), which the browser never sends to any server. List links carry `kind: "todo"`; reminder links predate that field and still decode. This is the fix for the original Android app's bug where share links only worked if the recipient already had the reminder in their own local database. |
 
 ### `lib/db/` - the IndexedDB layer (Dexie)
 
 | File | What it does |
 | --- | --- |
 | `dexie.ts` | Defines the `RemindMeDB` class (four tables: `reminders`, `vaultReferences`, `todos`, `preferences`) and a `newId()` helper. |
-| `reminders.ts` | `createReminder`, `updateReminder`, `deleteReminder`, `setCompleted` (handles auto-delete-on-complete), `importReminder`. Every create/update also calls into `lib/push/client.ts` to keep the server-side schedule in sync. |
-| `todos.ts` | `createTodo`, `updateTodo`, `deleteTodo`, `toggleTodo`. |
+| `reminders.ts` | `createReminder`, `updateReminder`, `deleteReminder` (unlinks any to-do that pointed at it), `setCompleted` (handles auto-delete-on-complete), `importReminder`, `retryPendingSchedules`. Every create/update also calls into `lib/push/client.ts` to keep the server-side schedule in sync. |
+| `todos.ts` | `createTodo`, `updateTodo`, `deleteTodo`, `toggleTodo` (also completes/un-completes a linked reminder), `linkTodoToReminder`, `importTodoList`. |
 | `vault.ts` | `createVaultReference`, `updateVaultReference`, `deleteVaultReference`. |
 | `preferences.ts` | A single "singleton" row holding `autoDeleteDefault`, `hasSeenOnboarding`, a randomly-generated `deviceId` (used to key push subscriptions/schedules server-side - there are no user accounts, so this anonymous per-browser id is how the server knows which subscription belongs to which set of scheduled reminders), and a server-issued `pushToken` that authorizes schedule/cancel requests. |
 
@@ -247,7 +259,7 @@ Pages read data reactively via `dexie-react-hooks`' `useLiveQuery` - the UI upda
 
 | File | Runs where | What it does |
 | --- | --- | --- |
-| `client.ts` | Browser | `getNotificationReadiness()` (checks platform support / iOS install requirement / permission state), `requestNotificationPermissionAndSubscribe()` (the actual subscribe flow - also stores the server-issued `pushToken`), `hasActiveSubscription()` (double-checks a real subscription exists rather than trusting permission state alone), `syncReminderSchedule()` / `cancelReminderSchedule()` (called by `lib/db/reminders.ts` on every create/update/delete). Failed syncs mark the reminder `pushSyncPending`; `retryPendingSchedules()` re-drives them on app load, when connectivity returns, and after enabling notifications. |
+| `client.ts` | Browser | `getNotificationReadiness()` (checks platform support / iOS install requirement / permission state), `requestNotificationPermissionAndSubscribe()` (the actual subscribe flow - also stores the server-issued `pushToken`), `hasActiveSubscription()` (double-checks a real subscription exists rather than trusting permission state alone), `syncReminderSchedule()` / `cancelReminderSchedule()` (called by `lib/db/reminders.ts` on every create/update/delete). Failed syncs mark the reminder `pushSyncPending`; `retryPendingSchedules()` re-drives them on app load, when connectivity returns, and after enabling notifications. `getVerifiedNotificationReadiness()` is what every status display uses ("ready" only with a live subscription); `disableNotifications()` unsubscribes server-then-browser and flags active reminders pending; `sendTestNotification()` calls `/api/push/test`. |
 | `store.ts` | Server only (`import "server-only"`) | All database access for push delivery - `saveSubscription` (mints a per-device token), `deleteSubscription`, `getSubscription`, `verifyDevice`, `upsertTrigger`, `cancelTrigger`, `claimDueTriggers` (atomic claim, bounded by a per-run backlog cap). Lazily creates the libSQL client (see [below](#why-the-libsql-client-is-created-lazily)), auto-creates/migrates its tables on first use, and retries a failed init instead of bricking the process. |
 | `send.ts` | Server only | Wraps the `web-push` library - configures VAPID details once, sends one push, and reports back whether the subscription is dead (404/410 from the push service) so the caller can clean it up. |
 
@@ -402,7 +414,7 @@ Real issues hit while standing this deployment up, roughly in the order they'd b
 
 - **Storage**: Dexie (IndexedDB) - `lib/db/*`. Source of truth for all personal data, offline-capable.
 - **Domain logic**: `lib/domain/*` - recurrence math, share-link encode/decode.
-- **Share/import**: the reminder's data is embedded directly in the share link's URL fragment (base64url JSON after `#`), never sent to any server. This fixes a bug in the original Android app, where the share link only worked if the recipient happened to already have the reminder in their own local database.
+- **Share/import**: the reminder's (or to-do list's) data is embedded directly in the share link's URL fragment (base64url JSON after `#`), never sent to any server. This fixes a bug in the original Android app, where the share link only worked if the recipient happened to already have the reminder in their own local database.
 - **Push**: `lib/push/client.ts` (subscribe/permission flow), `lib/push/store.ts` + `lib/push/send.ts` (server-only), `app/api/push/*`, `public/sw.js` (service worker: push + notificationclick handlers, plus basic offline app-shell caching).
 - **UI**: brutalist look ported from the original app's Compose theme (`components/ui/` shadcn primitives, palette in `app/globals.css`), light/dark via `prefers-color-scheme`.
 
