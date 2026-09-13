@@ -31,22 +31,27 @@ function useSharedContent(): SharedContent | null | undefined {
   return fragment ? decodeSharedContent(fragment) : null;
 }
 
+// What was imported, kept in state because the URL fragment is dropped right after a successful
+// import (so a refresh can't import the same link twice) and the shared content is gone with it.
+type ImportResult = { kind: "reminder"; title: string } | { kind: "todo"; count: number; listId: string };
+
 export default function ImportPage() {
   const router = useRouter();
   const shared = useSharedContent();
-  const [imported, setImported] = useState(false);
+  const [result, setResult] = useState<ImportResult | null>(null);
   const [importing, setImporting] = useState(false);
-  const [importedListId, setImportedListId] = useState<string | null>(null);
 
   async function handleImport() {
     if (!shared || importing) return;
     setImporting(true);
+    let imported: ImportResult;
     try {
       if (shared.kind === "reminder") {
         await importReminder(shared.payload);
+        imported = { kind: "reminder", title: shared.payload.title };
       } else {
         const list = await importTodoList(shared.payload.title, shared.payload.items);
-        setImportedListId(list.id);
+        imported = { kind: "todo", count: shared.payload.items.length, listId: list.id };
       }
     } catch (err) {
       console.error("Failed to import", err);
@@ -54,9 +59,33 @@ export default function ImportPage() {
       toast.error("Couldn't import this. Please try again.");
       return;
     }
-    // Drop the fragment so a refresh doesn't import the same link a second time.
     window.history.replaceState(null, "", window.location.pathname + window.location.search);
-    setImported(true);
+    setResult(imported);
+  }
+
+  if (result) {
+    const isTodo = result.kind === "todo";
+    return (
+      <PageTransition>
+        <div className="flex flex-col items-center gap-4 py-12 text-center">
+          <div className="flex size-14 items-center justify-center rounded-full bg-green-500/10 text-green-500">
+            <CheckCircle2 className="size-7" />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Imported!</h1>
+          <p className="text-sm text-muted-foreground">
+            {result.kind === "todo"
+              ? `${result.count} task${result.count === 1 ? "" : "s"} added as a new list in your To-do.`
+              : `"${result.title}" has been added to your reminders.`}
+          </p>
+          <Button
+            className="mt-2"
+            onClick={() => router.push(result.kind === "todo" ? `/todo/${result.listId}` : "/", { transitionTypes: ["nav-forward"] })}
+          >
+            {isTodo ? "Open the list" : "Go to RemindMe"}
+          </Button>
+        </div>
+      </PageTransition>
+    );
   }
 
   if (shared === undefined) return null;
@@ -76,30 +105,6 @@ export default function ImportPage() {
   }
 
   const isTodo = shared.kind === "todo";
-
-  if (imported) {
-    return (
-      <PageTransition>
-        <div className="flex flex-col items-center gap-4 py-12 text-center">
-          <div className="flex size-14 items-center justify-center rounded-full bg-green-500/10 text-green-500">
-            <CheckCircle2 className="size-7" />
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Imported!</h1>
-          <p className="text-sm text-muted-foreground">
-            {isTodo
-              ? `${shared.payload.items.length} task${shared.payload.items.length === 1 ? "" : "s"} added as a new list in your To-do.`
-              : `"${shared.payload.title}" has been added to your reminders.`}
-          </p>
-          <Button
-            className="mt-2"
-            onClick={() => router.push(isTodo ? (importedListId ? `/todo/${importedListId}` : "/todo") : "/", { transitionTypes: ["nav-forward"] })}
-          >
-            {isTodo ? "Open the list" : "Go to RemindMe"}
-          </Button>
-        </div>
-      </PageTransition>
-    );
-  }
 
   return (
     <PageTransition>
