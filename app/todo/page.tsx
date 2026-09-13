@@ -3,192 +3,89 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
 import { useState } from "react";
-import { format } from "date-fns";
 import { toast } from "sonner";
 import { db } from "../../lib/db/dexie";
-import { createTodo, deleteTodo, toggleTodo, updateTodo } from "../../lib/db/todos";
-import type { Reminder, TodoItem } from "../../lib/domain/types";
-import { buildTodoListShareLink, buildTodoListShareText } from "../../lib/domain/share";
+import { createTodoList, deleteTodoList, updateTodoList } from "../../lib/db/todos";
+import type { TodoList } from "../../lib/domain/types";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Checkbox } from "../../components/ui/checkbox";
+import { Textarea } from "../../components/ui/textarea";
+import { Card, CardContent } from "../../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { PageTransition } from "../../components/PageTransition";
-import { ShareDialog } from "../../components/ShareDialog";
-import { BellPlus, BellRing, Check, CheckCircle2, Pencil, Plus, Share, Trash2, X } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { ChevronRight, Pencil, Plus, Save, Trash2 } from "lucide-react";
 
-interface TodoRowProps {
-  todo: TodoItem;
-  reminder: Reminder | undefined;
-  editing: boolean;
-  editingText: string;
-  onEditingTextChange: (text: string) => void;
-  onStartEdit: () => void;
-  onSaveEdit: () => void;
-  onCancelEdit: () => void;
-  onToggle: () => void;
-  onDelete: () => void;
+interface ListCounts {
+  total: number;
+  done: number;
 }
 
-function TodoRow({ todo, reminder, editing, editingText, onEditingTextChange, onStartEdit, onSaveEdit, onCancelEdit, onToggle, onDelete }: TodoRowProps) {
-  return (
-    <div
-      className={cn(
-        "flex min-h-12 items-center gap-3 rounded-lg border bg-card px-3 py-3 text-card-foreground",
-        todo.isCompleted && "opacity-60"
-      )}
-    >
-      <Checkbox checked={todo.isCompleted} onCheckedChange={onToggle} aria-label="Mark done" className="size-5" />
-      <div className="min-w-0 flex-1">
-        {editing ? (
-          <Input
-            value={editingText}
-            onChange={(e) => onEditingTextChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onSaveEdit();
-              if (e.key === "Escape") onCancelEdit();
-            }}
-            autoFocus
-          />
-        ) : (
-          <>
-            <span className={cn("block", todo.isCompleted && "line-through")}>{todo.text}</span>
-            {reminder && (
-              <Link
-                href={`/create?id=${reminder.id}`}
-                transitionTypes={["nav-forward"]}
-                className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <BellRing className="size-3" />
-                {reminder.dueDate ? format(new Date(reminder.dueDate), "d MMM, h:mm a") : "Reminder set (no time)"}
-              </Link>
-            )}
-          </>
-        )}
-      </div>
-      {editing ? (
-        <>
-          <Button variant="ghost" size="icon-sm" onClick={onSaveEdit} aria-label="Save">
-            <Check />
-          </Button>
-          <Button variant="ghost" size="icon-sm" onClick={onCancelEdit} aria-label="Cancel">
-            <X />
-          </Button>
-        </>
-      ) : (
-        <>
-          {!reminder && !todo.isCompleted && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Remind me"
-              render={<Link href={`/create?todo=${todo.id}`} transitionTypes={["nav-forward"]} />}
-            >
-              <BellPlus />
-            </Button>
-          )}
-          <Button variant="ghost" size="icon-sm" onClick={onStartEdit} aria-label="Edit">
-            <Pencil />
-          </Button>
-          <Button variant="ghost" size="icon-sm" className="text-destructive" onClick={onDelete} aria-label="Delete">
-            <Trash2 />
-          </Button>
-        </>
-      )}
-    </div>
-  );
+function countLabel({ total, done }: ListCounts): string {
+  if (total === 0) return "No tasks yet";
+  if (done === total) return `All ${total} done`;
+  return `${done} of ${total} done`;
 }
 
-export default function TodoPage() {
-  const [text, setText] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingText, setEditingText] = useState("");
-  const [shareOpen, setShareOpen] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
-  const todos = useLiveQuery(() => db.todos.orderBy("createdAt").reverse().toArray(), [], []);
+export default function TodoListsPage() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<TodoList | null>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  // Linked reminders, looked up in one query so each row can show its alert time.
-  const linkedKey = (todos ?? [])
-    .map((t) => t.reminderId)
-    .filter((id): id is string => !!id)
-    .join(",");
-  const linkedReminders = useLiveQuery(
-    () => (linkedKey ? db.reminders.where("id").anyOf(linkedKey.split(",")).toArray() : Promise.resolve([] as Reminder[])),
-    [linkedKey],
-    []
-  );
-  const reminderById = new Map((linkedReminders ?? []).map((r) => [r.id, r]));
+  const lists = useLiveQuery(() => db.todoLists.orderBy("createdAt").reverse().toArray(), [], []);
+  const todos = useLiveQuery(() => db.todos.toArray(), [], []);
 
-  async function handleAdd(e: React.FormEvent) {
+  const counts = new Map<string, ListCounts>();
+  for (const todo of todos ?? []) {
+    const entry = counts.get(todo.listId) ?? { total: 0, done: 0 };
+    entry.total += 1;
+    if (todo.isCompleted) entry.done += 1;
+    counts.set(todo.listId, entry);
+  }
+
+  function openNew() {
+    setEditing(null);
+    setTitle("");
+    setDescription("");
+    setDialogOpen(true);
+  }
+
+  function openEdit(list: TodoList) {
+    setEditing(list);
+    setTitle(list.title);
+    setDescription(list.description);
+    setDialogOpen(true);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (!title.trim() || saving) return;
+    setSaving(true);
     try {
-      await createTodo(text.trim());
-      setText("");
-      toast.success("Task added");
+      if (editing) {
+        await updateTodoList({ ...editing, title: title.trim(), description: description.trim() });
+      } else {
+        await createTodoList(title.trim(), description.trim());
+      }
+      setDialogOpen(false);
     } catch (err) {
-      console.error("Failed to add todo", err);
-      toast.error("Couldn't add the to-do. Please try again.");
+      console.error("Failed to save to-do list", err);
+      toast.error("Couldn't save the list. Please try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
-  function startEdit(todo: TodoItem) {
-    setEditingId(todo.id);
-    setEditingText(todo.text);
-  }
-
-  async function saveEdit(todo: TodoItem) {
-    if (!editingText.trim()) return;
+  async function handleDelete(list: TodoList) {
     try {
-      await updateTodo({ ...todo, text: editingText.trim() });
-      setEditingId(null);
+      await deleteTodoList(list.id);
     } catch (err) {
-      console.error("Failed to update todo", err);
-      toast.error("Couldn't save changes. Please try again.");
+      console.error("Failed to delete to-do list", err);
+      toast.error("Couldn't delete the list. Please try again.");
     }
   }
-
-  async function handleToggle(todo: TodoItem) {
-    try {
-      await toggleTodo(todo);
-    } catch (err) {
-      console.error("Failed to toggle todo", err);
-      toast.error("Couldn't update the to-do. Please try again.");
-    }
-  }
-
-  async function handleDelete(id: string) {
-    try {
-      await deleteTodo(id);
-    } catch (err) {
-      console.error("Failed to delete todo", err);
-      toast.error("Couldn't delete the to-do. Please try again.");
-    }
-  }
-
-  function renderRow(todo: TodoItem) {
-    return (
-      <TodoRow
-        key={todo.id}
-        todo={todo}
-        reminder={todo.reminderId ? reminderById.get(todo.reminderId) : undefined}
-        editing={editingId === todo.id}
-        editingText={editingText}
-        onEditingTextChange={setEditingText}
-        onStartEdit={() => startEdit(todo)}
-        onSaveEdit={() => saveEdit(todo)}
-        onCancelEdit={() => setEditingId(null)}
-        onToggle={() => handleToggle(todo)}
-        onDelete={() => handleDelete(todo.id)}
-      />
-    );
-  }
-
-  const pending = todos?.filter((t) => !t.isCompleted) ?? [];
-  const done = todos?.filter((t) => t.isCompleted) ?? [];
-  const pendingTexts = pending.map((t) => t.text);
 
   return (
     <PageTransition>
@@ -196,38 +93,35 @@ export default function TodoPage() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">To-do</h1>
-            <p className="text-sm text-muted-foreground">
-              A checklist. No alerts unless you tap <BellPlus className="inline size-3.5 align-text-bottom" /> to add a reminder to a task.
-            </p>
+            <p className="text-sm text-muted-foreground">Lists of things to do. Open one to tick tasks off; alerts are optional.</p>
           </div>
-          <div className="flex shrink-0 gap-2">
-            <Button variant="outline" size="icon" aria-label="Share list" onClick={() => setShareOpen(true)} disabled={pending.length === 0}>
-              <Share />
-            </Button>
-            <Button onClick={() => setAddOpen(true)}>
-              <Plus /> New
-            </Button>
-          </div>
+          <Button className="shrink-0" onClick={openNew}>
+            <Plus /> New
+          </Button>
         </div>
 
-        {addOpen && (
-          <Dialog open onOpenChange={(open) => !open && setAddOpen(false)}>
+        {dialogOpen && (
+          <Dialog open onOpenChange={(open) => !open && setDialogOpen(false)}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>New task</DialogTitle>
-                <DialogDescription>Each Add saves the task and clears the box, so you can add several in a row.</DialogDescription>
+                <DialogTitle>{editing ? "Edit list" : "New list"}</DialogTitle>
+                <DialogDescription>Give the list a name; tasks go inside it.</DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleAdd} className="flex flex-col gap-3">
+              <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="todo-text">Task</Label>
-                  <Input id="todo-text" value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. Buy milk" autoFocus />
+                  <Label htmlFor="list-title">Title</Label>
+                  <Input id="list-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Groceries" autoFocus required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="list-description">Description</Label>
+                  <Textarea id="list-description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
-                    Done
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancel
                   </Button>
-                  <Button type="submit" disabled={!text.trim()}>
-                    <Plus /> Add
+                  <Button type="submit" disabled={!title.trim() || saving}>
+                    <Save /> {editing ? "Save changes" : "Create"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -235,33 +129,38 @@ export default function TodoPage() {
           </Dialog>
         )}
 
-        {shareOpen && (
-          <ShareDialog
-            title="Share to-do list"
-            description={`Send your ${pending.length} open task${pending.length === 1 ? "" : "s"} to someone. They tap the link to add them to their own To-do.`}
-            shareTitle="RemindMe to-do list"
-            shareText={buildTodoListShareText("", pendingTexts)}
-            shareLink={buildTodoListShareLink("", pendingTexts)}
-            onClose={() => setShareOpen(false)}
-          />
-        )}
-
-        <div className="grid gap-2 sm:grid-cols-2 sm:auto-rows-fr">{pending.map(renderRow)}</div>
-        {pending.length === 0 && (
+        <div className="grid gap-2 sm:grid-cols-2 sm:auto-rows-fr">
+          {(lists ?? []).map((list) => {
+            const listCounts = counts.get(list.id) ?? { total: 0, done: 0 };
+            return (
+              <Card key={list.id} className="h-full">
+                <CardContent className="flex h-full items-start gap-2">
+                  <Link href={`/todo/${list.id}`} transitionTypes={["nav-forward"]} className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{list.title}</p>
+                      {list.description && <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{list.description}</p>}
+                      <p className="mt-1 text-xs text-muted-foreground">{countLabel(listCounts)}</p>
+                    </div>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  </Link>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(list)} aria-label="Edit list">
+                      <Pencil />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" className="text-destructive" onClick={() => handleDelete(list)} aria-label="Delete list">
+                      <Trash2 />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+        {lists?.length === 0 && (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">
-            <p>Nothing to do. Nice.</p>
-            <p>Tap “New” to add a task.</p>
+            <p>No lists yet.</p>
+            <p>Tap “New” to create one, then add tasks to it.</p>
           </div>
-        )}
-
-        {done.length > 0 && (
-          <details className="group mt-2">
-            <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground">
-              <CheckCircle2 className="size-4" />
-              Completed ({done.length})
-            </summary>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 sm:auto-rows-fr">{done.map(renderRow)}</div>
-          </details>
         )}
       </div>
     </PageTransition>

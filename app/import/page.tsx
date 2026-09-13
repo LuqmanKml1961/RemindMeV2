@@ -36,13 +36,18 @@ export default function ImportPage() {
   const shared = useSharedContent();
   const [imported, setImported] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importedListId, setImportedListId] = useState<string | null>(null);
 
   async function handleImport() {
     if (!shared || importing) return;
     setImporting(true);
     try {
-      if (shared.kind === "reminder") await importReminder(shared.payload);
-      else await importTodoList(shared.payload.items);
+      if (shared.kind === "reminder") {
+        await importReminder(shared.payload);
+      } else {
+        const list = await importTodoList(shared.payload.title, shared.payload.items);
+        setImportedListId(list.id);
+      }
     } catch (err) {
       console.error("Failed to import", err);
       setImporting(false);
@@ -82,11 +87,14 @@ export default function ImportPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Imported!</h1>
           <p className="text-sm text-muted-foreground">
             {isTodo
-              ? `${shared.payload.items.length} task${shared.payload.items.length === 1 ? "" : "s"} added to your To-do.`
+              ? `${shared.payload.items.length} task${shared.payload.items.length === 1 ? "" : "s"} added as a new list in your To-do.`
               : `"${shared.payload.title}" has been added to your reminders.`}
           </p>
-          <Button className="mt-2" onClick={() => router.push(isTodo ? "/todo" : "/", { transitionTypes: ["nav-forward"] })}>
-            {isTodo ? "Go to To-do" : "Go to RemindMe"}
+          <Button
+            className="mt-2"
+            onClick={() => router.push(isTodo ? (importedListId ? `/todo/${importedListId}` : "/todo") : "/", { transitionTypes: ["nav-forward"] })}
+          >
+            {isTodo ? "Open the list" : "Go to RemindMe"}
           </Button>
         </div>
       </PageTransition>
@@ -145,7 +153,7 @@ export default function ImportPage() {
         </Card>
         <p className="text-xs text-muted-foreground">
           {isTodo
-            ? "This list was shared with you. Importing adds the tasks to your device only."
+            ? "This list was shared with you. Importing adds it as a new list on your device only."
             : "This reminder was shared with you. Importing adds it to your device only."}
         </p>
         <Button className="w-full" onClick={handleImport} disabled={importing}>

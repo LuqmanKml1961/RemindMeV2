@@ -7,10 +7,10 @@ This is the PWA rewrite of the original native Android app (Kotlin/Compose, see 
 | | One-line meaning | Alerts? |
 | --- | --- | --- |
 | **Reminder** | "Alert me at a time." Four kinds: **Once** (auto-deletes when done), **Repeat** (daily/weekly/monthly/yearly/every N days), **Medical** (medication list), **Money** (amount). | Always |
-| **To-do** | "A checklist of things to do." | Optional — "Remind me" on a task creates a linked Reminder |
+| **To-do** | "Lists of things to do." Each list has a title and description and holds its own tasks (Groceries → milk, eggs…). | Optional — "Remind me" on a task creates a linked Reminder |
 | **Vault** | "Things I want to remember. Peek when I forget." (People / Home & Vehicle / Property) | Never |
 
-Any reminder or the whole to-do list can be **shared as a link** (WhatsApp, copy, or any app); the recipient taps it and it lands in their own RemindMe — no accounts anywhere.
+Any reminder or any to-do list can be **shared as a link** (WhatsApp, copy, or any app); the recipient taps it and it lands in their own RemindMe — no accounts anywhere.
 
 Live deployment: `https://remind-me-v2.vercel.app`
 
@@ -19,6 +19,10 @@ Live deployment: `https://remind-me-v2.vercel.app`
 ## Changelog
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
+
+### 2026-09-13 — To-do lists
+
+- **To-do is now lists of tasks.** `/todo` shows the lists (title, description, "2 of 5 done"); `/todo/<id>` is the checklist inside one list, with the same add / edit / tick / delete / "Remind me" / Share as before. Sharing sends one list; importing creates a new list on the recipient's device. Existing tasks are moved into a list called "My tasks" by the Dexie v2 upgrade (`lib/db/dexie.ts`).
 
 ### 2026-09-13 — Grey chin fixed; manifest colours dark-first
 
@@ -238,7 +242,8 @@ The reminder's data is embedded directly in the share link's URL fragment (`/imp
 | `app/layout.tsx` | Root layout: registers the service worker (`components/PwaRegister.tsx`), renders the bottom nav, sets PWA metadata (manifest link, theme color). |
 | `app/page.tsx` | Home screen. Redirects to `/onboarding` if the user hasn't seen it yet; otherwise lists active/completed reminders via a live Dexie query, filterable by kind, with a banner when notifications can't reach a closed app. |
 | `app/create/page.tsx` | Create/edit reminder form - kind (Once/Repeat/Medical/Money, see `lib/domain/kind.ts`), title, description, medications editor, due-date presets, recurrence picker, auto-delete toggle. Opened as `/create?todo=<id>` from a to-do task, it prefills the title and links the task on save. |
-| `app/todo/page.tsx` | To-do checklist (add, edit, toggle, delete), "Remind me" per task, "Share list" for every open task. |
+| `app/todo/page.tsx` | To-do lists overview: create / edit / delete lists (title + description), progress per list, tap to open. |
+| `app/todo/[id]/page.tsx` | One list's checklist (add, edit, toggle, delete), "Remind me" per task, "Share list" for its open tasks. |
 | `app/vault/page.tsx` | Vault CRUD - People / Home & Vehicle / Property categories, search, no notifications ever. |
 | `app/settings/page.tsx` | Notifications on/off switch (status always derived from a live subscription) + "Send test notification", auto-delete default toggle, dark mode, replay onboarding. |
 | `app/onboarding/page.tsx` | Four-screen guided intro: what it is → how to create → how to share → get notified (`components/NotificationSetup.tsx`). Skippable; marks onboarding seen at the end. |
@@ -269,7 +274,7 @@ Pure logic with no browser/server dependencies - the equivalent of the original 
 
 | File | What it does |
 | --- | --- |
-| `types.ts` | The data model: `Reminder`, `Medication`, `RecurrenceRule`, `VaultReference`, `TodoItem`, `Preferences`. |
+| `types.ts` | The data model: `Reminder`, `Medication`, `RecurrenceRule`, `VaultReference`, `TodoList`, `TodoItem`, `Preferences`. |
 | `recurrence.ts` | `computeNextDue()` - given a last-due date and a recurrence rule, returns the next occurrence (daily/weekly/monthly/yearly/every-N-days). Used both client-side (when a reminder fires locally) and server-side (when the dispatch cron reschedules a recurring push). |
 | `kind.ts` | `reminderKind()` derives Once / Repeat / Medical / Money from a reminder's `type` + `recurrence` (nothing is stored); `REMINDER_KINDS` carries the labels and one-line descriptions shown in the form and onboarding. |
 | `share.ts` | `encodeShareFragment()` / `encodeTodoListFragment()` / `decodeSharedContent()` - base64url-encodes a reminder or a to-do list for the share link's URL fragment (`#...`), which the browser never sends to any server. List links carry `kind: "todo"`; reminder links predate that field and still decode. This is the fix for the original Android app's bug where share links only worked if the recipient already had the reminder in their own local database. |
@@ -278,9 +283,9 @@ Pure logic with no browser/server dependencies - the equivalent of the original 
 
 | File | What it does |
 | --- | --- |
-| `dexie.ts` | Defines the `RemindMeDB` class (four tables: `reminders`, `vaultReferences`, `todos`, `preferences`) and a `newId()` helper. |
+| `dexie.ts` | Defines the `RemindMeDB` class (five tables: `reminders`, `vaultReferences`, `todoLists`, `todos`, `preferences`), the v2 upgrade that moves pre-existing tasks into a "My tasks" list, and a `newId()` helper. |
 | `reminders.ts` | `createReminder`, `updateReminder`, `deleteReminder` (unlinks any to-do that pointed at it), `setCompleted` (handles auto-delete-on-complete), `importReminder`, `retryPendingSchedules`. Every create/update also calls into `lib/push/client.ts` to keep the server-side schedule in sync. |
-| `todos.ts` | `createTodo`, `updateTodo`, `deleteTodo`, `toggleTodo` (also completes/un-completes a linked reminder), `linkTodoToReminder`, `importTodoList`. |
+| `todos.ts` | Lists: `createTodoList`, `updateTodoList`, `deleteTodoList` (removes its tasks too). Tasks: `createTodo`, `updateTodo`, `deleteTodo`, `toggleTodo` (also completes/un-completes a linked reminder), `linkTodoToReminder`, `importTodoList` (a shared list becomes a new list). |
 | `vault.ts` | `createVaultReference`, `updateVaultReference`, `deleteVaultReference`. |
 | `preferences.ts` | A single "singleton" row holding `autoDeleteDefault`, `hasSeenOnboarding`, a randomly-generated `deviceId` (used to key push subscriptions/schedules server-side - there are no user accounts, so this anonymous per-browser id is how the server knows which subscription belongs to which set of scheduled reminders), and a server-issued `pushToken` that authorizes schedule/cancel requests. |
 

@@ -53,8 +53,17 @@ export interface VaultReference {
   createdAt: number; // epoch millis
 }
 
+// A titled group of tasks ("Groceries", "Trip prep"); every task belongs to exactly one list.
+export interface TodoList {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string; // ISO
+}
+
 export interface TodoItem {
   id: string;
+  listId: string;
   text: string;
   isCompleted: boolean;
   priority: number;

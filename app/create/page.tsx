@@ -56,6 +56,7 @@ function CreateReminderForm() {
   const [autoDelete, setAutoDelete] = useState(true);
   const [autoDeleteDefault, setAutoDeleteDefault] = useState(false);
   const [loaded, setLoaded] = useState(!editId && !todoId);
+  const [todoListId, setTodoListId] = useState<string | null>(null);
 
   useEffect(() => {
     if (editId) return;
@@ -69,7 +70,10 @@ function CreateReminderForm() {
     db.todos
       .get(todoId)
       .then((todo) => {
-        if (todo) setTitle(todo.text);
+        if (todo) {
+          setTitle(todo.text);
+          setTodoListId(todo.listId);
+        }
         setLoaded(true);
       })
       .catch((err) => {
@@ -165,7 +169,7 @@ function CreateReminderForm() {
       return;
     }
 
-    router.push(todoId ? "/todo" : "/", { transitionTypes: ["nav-back"] });
+    router.push(todoId ? (todoListId ? `/todo/${todoListId}` : "/todo") : "/", { transitionTypes: ["nav-back"] });
   }
 
   if (!loaded) return null;
