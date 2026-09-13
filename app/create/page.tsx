@@ -2,7 +2,7 @@
 
 import { addMinutes } from "date-fns";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
@@ -11,6 +11,7 @@ import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { Switch } from "../../components/ui/switch";
 import { Separator } from "../../components/ui/separator";
+import { Spinner } from "../../components/ui/spinner";
 import { DatePicker } from "../../components/ui/date-picker";
 import { PageTransition } from "../../components/PageTransition";
 import { db, newId } from "../../lib/db/dexie";
@@ -56,6 +57,11 @@ function CreateReminderForm() {
   const [autoDelete, setAutoDelete] = useState(true);
   const [autoDeleteDefault, setAutoDeleteDefault] = useState(false);
   const [loaded, setLoaded] = useState(!editId && !todoId);
+  // Saving also syncs the push schedule with the server, which can take a moment; the form is
+  // locked meanwhile so a second tap can't create a duplicate. The ref blocks re-entry before
+  // React has re-rendered with the disabled buttons.
+  const [saving, setSaving] = useState(false);
+  const saveInFlight = useRef(false);
   const [todoListId, setTodoListId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -137,7 +143,9 @@ function CreateReminderForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || saveInFlight.current) return;
+    saveInFlight.current = true;
+    setSaving(true);
 
     const base = {
       title: title.trim(),
@@ -166,6 +174,8 @@ function CreateReminderForm() {
     } catch (err) {
       console.error("Failed to save reminder", err);
       toast.error("Couldn't save the reminder. Please try again.");
+      saveInFlight.current = false;
+      setSaving(false);
       return;
     }
 
@@ -324,11 +334,11 @@ function CreateReminderForm() {
         </div>
 
         <div className="flex gap-3">
-          <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>
+          <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()} disabled={saving}>
             <X /> Cancel
           </Button>
-          <Button type="submit" className="flex-1">
-            <Save /> Save
+          <Button type="submit" className="flex-1" disabled={saving}>
+            {saving ? <Spinner /> : <Save />} {saving ? "Saving…" : "Save"}
           </Button>
         </div>
       </form>

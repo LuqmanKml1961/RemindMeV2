@@ -20,9 +20,10 @@ Live deployment: `https://remind-me-v2.vercel.app`
 
 Newest first. This log covers notable feature, UX, and PWA changes; see git history for full detail.
 
-### 2026-09-13 — To-do lists
+### 2026-09-13 — To-do lists; no more duplicate reminders from a double tap
 
 - **To-do is now lists of tasks.** `/todo` shows the lists (title, description, "2 of 5 done"); `/todo/<id>` is the checklist inside one list, with the same add / edit / tick / delete / "Remind me" / Share as before. Sharing sends one list; importing creates a new list on the recipient's device. Existing tasks are moved into a list called "My tasks" by the Dexie v2 upgrade (`lib/db/dexie.ts`).
+- **Save is locked while a reminder is being saved** (`app/create/page.tsx`). Saving also syncs the push schedule with the server, which can take a moment on a slow connection; tapping Save repeatedly in that window created one reminder per tap. The button now shows a spinner and both buttons are disabled until the save finishes.
 
 ### 2026-09-13 — Grey chin fixed; manifest colours dark-first
 
